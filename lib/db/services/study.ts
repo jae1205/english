@@ -69,9 +69,9 @@ export interface SessionSummary {
 /**
  * Get study queue for a deck
  */
-export async function getStudyQueue(deckId: string): Promise<StudyQueue> {
+export async function getStudyQueue(deckId: string, studyDay?: number): Promise<StudyQueue> {
   const dailyLimit = await getDailyNewCardLimit();
-  const dueCards = await getDueCards(deckId, dailyLimit);
+  const dueCards = await getDueCards(deckId, dailyLimit, studyDay);
 
   const db = await getDatabase();
 

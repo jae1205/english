@@ -10,6 +10,14 @@ import { Colors, FontFamily, Spacing, BorderRadius } from '@/constants/theme';
 import { useColorScheme, useDecks } from '@/hooks';
 import { forceSeedDatabase } from '@/lib/db';
 
+const DAY_OPTIONS: Array<{ label: string; value: number | 'all' }> = [
+  { label: '전체', value: 'all' },
+  ...Array.from({ length: 15 }, (_, index) => ({
+    label: `Day ${index + 1}`,
+    value: index + 1,
+  })),
+];
+
 export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -19,9 +27,12 @@ export default function HomeScreen() {
   const { decks, isLoading, error, refresh } = useDecks();
   const [refreshing, setRefreshing] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [selectedDay, setSelectedDay] = useState<number | 'all'>(1);
+  const [isDayMenuOpen, setIsDayMenuOpen] = useState(false);
+  const selectedDayLabel = selectedDay === 'all' ? '전체' : `Day ${selectedDay}`;
 
   const handleDeckPress = (deckId: string) => {
-    router.push(`/study/${deckId}`);
+    router.push(selectedDay === 'all' ? `/study/${deckId}` : `/study/${deckId}?day=${selectedDay}`);
   };
 
   const handleRefresh = useCallback(async () => {
@@ -110,6 +121,76 @@ export default function HomeScreen() {
         </View>
       </View>
 
+      <View style={styles.daySelectorSection}>
+        <Pressable
+          accessibilityLabel="학습 일자 선택"
+          accessibilityRole="button"
+          onPress={() => setIsDayMenuOpen((value) => !value)}
+          style={[
+            styles.daySelectorButton,
+            {
+              backgroundColor: colors.surfaceElevated,
+              borderColor: colors.border,
+            },
+          ]}
+        >
+          <View>
+            <ThemedText style={[styles.daySelectorLabel, { color: colors.textMuted }]}>일자</ThemedText>
+            <ThemedText style={styles.daySelectorValue}>{selectedDayLabel}</ThemedText>
+          </View>
+          <Ionicons
+            name={isDayMenuOpen ? 'chevron-up' : 'chevron-down'}
+            size={18}
+            color={colors.textMuted}
+          />
+        </Pressable>
+
+        {isDayMenuOpen && (
+          <View
+            style={[
+              styles.dayMenu,
+              {
+                backgroundColor: colors.surfaceElevated,
+                borderColor: colors.border,
+              },
+            ]}
+          >
+            {DAY_OPTIONS.map((option) => {
+              const isSelected = option.value === selectedDay;
+
+              return (
+                <Pressable
+                  key={option.value}
+                  accessibilityRole="button"
+                  onPress={() => {
+                    setSelectedDay(option.value);
+                    setIsDayMenuOpen(false);
+                  }}
+                  style={[
+                    styles.dayOption,
+                    {
+                      backgroundColor: isSelected ? colors.accent : colors.surface,
+                      borderColor: isSelected ? colors.accent : colors.border,
+                    },
+                  ]}
+                >
+                  <ThemedText
+                    style={[
+                      styles.dayOptionText,
+                      {
+                        color: isSelected ? '#000000' : colors.textSecondary,
+                      },
+                    ]}
+                  >
+                    {option.label}
+                  </ThemedText>
+                </Pressable>
+              );
+            })}
+          </View>
+        )}
+      </View>
+
       <DeckList
         decks={decks}
         onDeckPress={handleDeckPress}
@@ -148,6 +229,51 @@ const styles = StyleSheet.create({
   },
   iconButton: {
     padding: Spacing.xs,
+  },
+  daySelectorSection: {
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.sm,
+    gap: Spacing.sm,
+  },
+  daySelectorButton: {
+    minHeight: 56,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: BorderRadius.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  daySelectorLabel: {
+    fontSize: 12,
+    fontFamily: FontFamily.regular,
+    marginBottom: 2,
+  },
+  daySelectorValue: {
+    fontSize: 16,
+    fontFamily: FontFamily.semiBold,
+  },
+  dayMenu: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.sm,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
+  },
+  dayOption: {
+    minWidth: 72,
+    minHeight: 36,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: BorderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.sm,
+  },
+  dayOptionText: {
+    fontSize: 13,
+    fontFamily: FontFamily.medium,
   },
   resetButton: {
     minHeight: 36,

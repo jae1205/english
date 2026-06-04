@@ -82,9 +82,12 @@ export async function updateCardProgress(
 export async function getDueCards(
   deckId: string,
   dailyNewLimit: number,
+  studyDay?: number,
   now: number = Date.now()
 ): Promise<DbCardProgress[]> {
   const db = await getDatabase();
+  const dayFilterSql = studyDay ? 'AND c.back_example LIKE ?' : '';
+  const dayFilterParams = studyDay ? [`Day ${studyDay} #%`] : [];
 
   // Get today's start (midnight)
   const todayStart = new Date(now);
@@ -99,8 +102,9 @@ export async function getDueCards(
      JOIN cards c ON cp.card_id = c.id
      WHERE c.deck_id = ?
        AND rl.reviewed_at >= ?
-       AND cp.status != 'new'`,
-    [deckId, todayStartMs]
+       AND cp.status != 'new'
+       ${dayFilterSql}`,
+    [deckId, todayStartMs, ...dayFilterParams]
   );
 
   const newCardsRemaining = Math.max(0, dailyNewLimit - (newStudiedToday?.count ?? 0));
@@ -111,6 +115,7 @@ export async function getDueCards(
      FROM card_progress cp
      JOIN cards c ON cp.card_id = c.id
      WHERE c.deck_id = ?
+       ${dayFilterSql}
        AND (
          (cp.status IN ('learning', 'relearning') AND cp.due_date <= ?)
          OR (cp.status = 'review' AND cp.due_date <= ?)
@@ -123,8 +128,9 @@ export async function getDueCards(
          WHEN 'review' THEN 3
          WHEN 'new' THEN 4
        END,
-       cp.due_date ASC`,
-    [deckId, now, now]
+       cp.due_date ASC,
+       c.created_at ASC`,
+    [deckId, ...dayFilterParams, now, now]
   );
 
   // Filter new cards based on daily limit

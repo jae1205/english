@@ -225,7 +225,7 @@ function reducer(
  * }
  * ```
  */
-export function useStudySession(deckId: string): UseStudySessionReturn {
+export function useStudySession(deckId: string, studyDay?: number): UseStudySessionReturn {
   if (!deckId) {
     console.warn('[useStudySession] deckId is empty');
   }
@@ -251,7 +251,7 @@ export function useStudySession(deckId: string): UseStudySessionReturn {
     dispatch({ type: 'LOAD_START' });
 
     try {
-      const queue = await getStudyQueue(deckId);
+      const queue = await getStudyQueue(deckId, studyDay);
       const adaptedCards = queue.cards.map(adaptCardToUI);
       dispatch({ type: 'LOAD_SUCCESS', cards: adaptedCards });
     } catch (error) {
@@ -261,7 +261,7 @@ export function useStudySession(deckId: string): UseStudySessionReturn {
         error: error instanceof Error ? error : new Error(String(error)),
       });
     }
-  }, [deckId]);
+  }, [deckId, studyDay]);
 
   // Update interval previews when current card changes
   useEffect(() => {

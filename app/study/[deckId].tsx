@@ -20,8 +20,16 @@ function isTextInputTarget(target: EventTarget | null): boolean {
   );
 }
 
+function normalizeStudyDay(day: string | string[] | undefined): number | undefined {
+  const value = Array.isArray(day) ? day[0] : day;
+  const numericDay = Number(value);
+
+  return Number.isInteger(numericDay) && numericDay >= 1 && numericDay <= 15 ? numericDay : undefined;
+}
+
 export default function StudyScreen() {
-  const { deckId } = useLocalSearchParams<{ deckId: string }>();
+  const { deckId, day } = useLocalSearchParams<{ deckId: string; day?: string }>();
+  const selectedDay = normalizeStudyDay(day);
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme() ?? 'dark';
@@ -39,7 +47,7 @@ export default function StudyScreen() {
     sessionStats,
     submitRating,
     undoRating,
-  } = useStudySession(deckId ?? '');
+  } = useStudySession(deckId ?? '', selectedDay);
 
   const [isRevealed, setIsRevealed] = useState(false);
 
@@ -173,6 +181,12 @@ export default function StudyScreen() {
         canUndo={canUndo}
       />
 
+      {selectedDay && (
+        <View style={[styles.dayBadge, { borderColor: colors.border, backgroundColor: colors.surfaceElevated }]}>
+          <ThemedText style={[styles.dayBadgeText, { color: colors.textSecondary }]}>Day {selectedDay}</ThemedText>
+        </View>
+      )}
+
       <Flashcard
         front={currentCard.front}
         back={currentCard.back}
@@ -215,5 +229,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: FontFamily.regular,
     opacity: 0.6,
+  },
+  dayBadge: {
+    alignSelf: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 8,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs,
+    marginBottom: Spacing.sm,
+  },
+  dayBadgeText: {
+    fontSize: 13,
+    fontFamily: FontFamily.medium,
   },
 });

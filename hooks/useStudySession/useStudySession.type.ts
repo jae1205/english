@@ -47,6 +47,7 @@ export type StudySessionAction =
 
 export interface UseStudySessionOptions {
   deckId: string;
+  studyDay?: number;
 }
 
 export interface UseStudySessionReturn {
