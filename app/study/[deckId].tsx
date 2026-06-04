@@ -53,6 +53,29 @@ export default function StudyScreen() {
     setIsRevealed(false);
   }, [currentCard?.id]);
 
+  useEffect(() => {
+    if (!currentCard || typeof window === 'undefined') return;
+
+    const handleSpace = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const isTyping =
+        target?.tagName === 'INPUT' ||
+        target?.tagName === 'TEXTAREA' ||
+        target?.isContentEditable;
+
+      if (isTyping || event.repeat || (event.code !== 'Space' && event.key !== ' ')) {
+        return;
+      }
+
+      event.preventDefault();
+      currentCard.front.onAudioPress?.();
+      setIsRevealed(true);
+    };
+
+    window.addEventListener('keydown', handleSpace);
+    return () => window.removeEventListener('keydown', handleSpace);
+  }, [currentCard]);
+
   const handleClose = () => {
     router.back();
   };
