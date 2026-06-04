@@ -10,6 +10,16 @@ import { ThemedText } from '@/components/themed-text';
 import { Colors, FontFamily, Spacing } from '@/constants/theme';
 import { useColorScheme, useStudySession } from '@/hooks';
 
+function isTextInputTarget(target: EventTarget | null): boolean {
+  const element = target as HTMLElement | null;
+
+  return (
+    element?.tagName === 'INPUT' ||
+    element?.tagName === 'TEXTAREA' ||
+    element?.isContentEditable === true
+  );
+}
+
 export default function StudyScreen() {
   const { deckId } = useLocalSearchParams<{ deckId: string }>();
   const router = useRouter();
@@ -57,13 +67,7 @@ export default function StudyScreen() {
     if (!currentCard || typeof window === 'undefined') return;
 
     const handleSpace = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null;
-      const isTyping =
-        target?.tagName === 'INPUT' ||
-        target?.tagName === 'TEXTAREA' ||
-        target?.isContentEditable;
-
-      if (isTyping || event.repeat || (event.code !== 'Space' && event.key !== ' ')) {
+      if (isTextInputTarget(event.target) || event.repeat || (event.code !== 'Space' && event.key !== ' ')) {
         return;
       }
 
@@ -93,6 +97,31 @@ export default function StudyScreen() {
     setIsRevealed(false);
     await submitRating(rating);
   };
+
+  useEffect(() => {
+    if (!currentCard || !isRevealed || typeof window === 'undefined') return;
+
+    const ratingByKey: Record<string, Rating> = {
+      '1': 'again',
+      '2': 'hard',
+      '3': 'good',
+      '4': 'easy',
+    };
+
+    const handleRatingKey = (event: KeyboardEvent) => {
+      const rating = ratingByKey[event.key];
+
+      if (!rating || event.repeat || isTextInputTarget(event.target)) {
+        return;
+      }
+
+      event.preventDefault();
+      void handleRate(rating);
+    };
+
+    window.addEventListener('keydown', handleRatingKey);
+    return () => window.removeEventListener('keydown', handleRatingKey);
+  }, [currentCard, isRevealed, submitRating]);
 
   // Loading state
   if (isLoading) {
