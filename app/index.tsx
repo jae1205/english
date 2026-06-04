@@ -1,12 +1,14 @@
 import { useRouter } from 'expo-router';
-import { StyleSheet, View, ActivityIndicator } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { StyleSheet, View, ActivityIndicator, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCallback, useState } from 'react';
 
 import { DeckList } from '@/components/deck';
 import { ThemedText } from '@/components/themed-text';
-import { Colors, FontFamily, Spacing } from '@/constants/theme';
+import { Colors, FontFamily, Spacing, BorderRadius } from '@/constants/theme';
 import { useColorScheme, useDecks } from '@/hooks';
+import { forceSeedDatabase } from '@/lib/db';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -16,6 +18,7 @@ export default function HomeScreen() {
 
   const { decks, isLoading, error, refresh } = useDecks();
   const [refreshing, setRefreshing] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
   const handleDeckPress = (deckId: string) => {
     router.push(`/study/${deckId}`);
@@ -26,6 +29,18 @@ export default function HomeScreen() {
     await refresh();
     setRefreshing(false);
   }, [refresh]);
+
+  const handleReset = useCallback(async () => {
+    if (resetting) return;
+
+    setResetting(true);
+    try {
+      await forceSeedDatabase();
+      await refresh();
+    } finally {
+      setResetting(false);
+    }
+  }, [refresh, resetting]);
 
   // Loading state
   if (isLoading && decks.length === 0) {
@@ -72,7 +87,27 @@ export default function HomeScreen() {
     >
       <View style={styles.header}>
         <ThemedText style={styles.title}>라이브러리</ThemedText>
-        <View style={styles.headerActions}></View>
+        <View style={styles.headerActions}>
+          <Pressable
+            accessibilityLabel="학습 데이터 초기화"
+            accessibilityRole="button"
+            disabled={resetting}
+            onPress={handleReset}
+            style={[
+              styles.resetButton,
+              {
+                backgroundColor: colors.surfaceElevated,
+                borderColor: colors.border,
+                opacity: resetting ? 0.6 : 1,
+              },
+            ]}
+          >
+            <Ionicons name="refresh" size={16} color={colors.textSecondary} />
+            <ThemedText style={styles.resetButtonText}>
+              {resetting ? '초기화 중' : '초기화'}
+            </ThemedText>
+          </Pressable>
+        </View>
       </View>
 
       <DeckList
@@ -113,6 +148,19 @@ const styles = StyleSheet.create({
   },
   iconButton: {
     padding: Spacing.xs,
+  },
+  resetButton: {
+    minHeight: 36,
+    paddingHorizontal: Spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: BorderRadius.md,
+  },
+  resetButtonText: {
+    fontSize: 13,
+    fontFamily: FontFamily.medium,
   },
   errorText: {
     fontSize: 18,

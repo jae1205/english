@@ -12,6 +12,7 @@ import type { CardState, CardStatus, IntervalPreview } from '@/lib/srs';
 import type { Rating as UIRating } from '@/components/study/RatingButtons/RatingButtons.type';
 import type { Rating as SRSRating } from '@/lib/srs';
 import { formatDays, DAY_MS } from '@/lib/srs';
+import { speakWord } from '@/lib/audio/speech';
 
 /**
  * Adapted card structure for UI consumption
@@ -33,6 +34,7 @@ export function adaptCardToUI(card: StudyCard): AdaptedCard {
   const front: FlashcardFrontProps = {
     word: card.front.word,
     phonetic: card.front.phonetic ?? undefined,
+    onAudioPress: () => speakWord(card.front.word, card.id),
   };
 
   const back: FlashcardBackProps = {

@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { GestureResponderEvent, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 
 import { ThemedText } from '@/components/themed-text';
@@ -16,6 +16,11 @@ const ANIMATION_DURATION = 200;
 export function Flashcard({ front, back, stats, isRevealed, onReveal }: FlashcardProps) {
   const colorScheme = useColorScheme() ?? 'dark';
   const colors = Colors[colorScheme];
+
+  const handleAudioPress = (event: GestureResponderEvent) => {
+    event.stopPropagation();
+    front.onAudioPress?.();
+  };
 
   const backAnimatedStyle = useAnimatedStyle(() => ({
     opacity: withTiming(isRevealed ? 1 : 0, {
@@ -37,7 +42,7 @@ export function Flashcard({ front, back, stats, isRevealed, onReveal }: Flashcar
           <ThemedText style={styles.word}>{front.word}</ThemedText>
           {front.onAudioPress && (
             <Pressable
-              onPress={front.onAudioPress}
+              onPress={handleAudioPress}
               style={[styles.audioButton, { backgroundColor: colors.surface }]}
               accessibilityLabel='발음 듣기'
             >

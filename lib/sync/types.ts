@@ -22,6 +22,7 @@ export interface SyncResult {
  * Column names: id, title, description
  */
 export interface RawDeckRow {
+  [key: string]: string;
   id: string;
   title: string;
   description: string;
@@ -32,6 +33,7 @@ export interface RawDeckRow {
  * Column names use snake_case to match Google Sheets
  */
 export interface RawCardRow {
+  [key: string]: string;
   id: string;
   deck_id: string;
   front_word: string;

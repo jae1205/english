@@ -2,7 +2,7 @@
  * Card Repository
  * Handles all database operations for flashcards
  */
-import { getDatabase } from '../index';
+import { getDatabase, runInDatabaseTransaction } from '../index';
 import type { DbCard, DbCardProgress, CreateCardInput } from '../types';
 import { stringifySynonyms } from '../types';
 import { createNewCardState } from '@/lib/srs';
@@ -35,7 +35,7 @@ export async function createCard(input: CreateCardInput): Promise<DbCard> {
   const now = Date.now();
   const initialState = createNewCardState();
 
-  await db.withExclusiveTransactionAsync(async (txn) => {
+  await runInDatabaseTransaction(async (txn) => {
     await txn.runAsync(
       `INSERT INTO cards (id, deck_id, front_word, front_phonetic, back_definition, back_example, back_synonyms, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -87,7 +87,7 @@ export async function createCards(inputs: CreateCardInput[]): Promise<DbCard[]> 
   const cards: DbCard[] = [];
   const now = Date.now();
 
-  await db.withExclusiveTransactionAsync(async (txn) => {
+  await runInDatabaseTransaction(async (txn) => {
     for (const input of inputs) {
       const id = input.id ?? generateId();
       const initialState = createNewCardState();
@@ -260,7 +260,7 @@ export async function upsertCard(input: CreateCardInput): Promise<void> {
     // Create new card with initial progress
     const initialState = createNewCardState();
 
-    await db.withExclusiveTransactionAsync(async (txn) => {
+    await runInDatabaseTransaction(async (txn) => {
       await txn.runAsync(
         `INSERT INTO cards (id, deck_id, front_word, front_phonetic, back_definition, back_example, back_synonyms, created_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -302,7 +302,7 @@ export async function upsertCards(inputs: CreateCardInput[]): Promise<void> {
   const db = await getDatabase();
   const now = Date.now();
 
-  await db.withExclusiveTransactionAsync(async (txn) => {
+  await runInDatabaseTransaction(async (txn) => {
     for (const input of inputs) {
       const id = input.id ?? generateId();
 

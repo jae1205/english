@@ -2,7 +2,7 @@
  * Deck Repository
  * Handles all database operations for decks (read-only for MVP)
  */
-import { getDatabase } from '../index';
+import { getDatabase, runInDatabaseTransaction } from '../index';
 import type { DbDeck, CreateDeckInput } from '../types';
 
 /**
@@ -50,7 +50,7 @@ export async function createDecks(inputs: CreateDeckInput[]): Promise<DbDeck[]> 
   const decks: DbDeck[] = [];
   const now = Date.now();
 
-  await db.withExclusiveTransactionAsync(async (txn) => {
+  await runInDatabaseTransaction(async (txn) => {
     for (const input of inputs) {
       const id = input.id ?? generateId();
       await txn.runAsync(
@@ -122,7 +122,7 @@ export async function upsertDecks(inputs: CreateDeckInput[]): Promise<void> {
   const db = await getDatabase();
   const now = Date.now();
 
-  await db.withExclusiveTransactionAsync(async (txn) => {
+  await runInDatabaseTransaction(async (txn) => {
     for (const input of inputs) {
       const id = input.id ?? generateId();
       await txn.runAsync(UPSERT_DECK_SQL, [

@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { GestureResponderEvent, Pressable, StyleSheet, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { BorderRadius, Colors, FontFamily, FontSize, Spacing } from '@/constants/theme';
@@ -15,13 +15,18 @@ export function FlashcardFront({
   const colorScheme = useColorScheme() ?? 'dark';
   const colors = Colors[colorScheme];
 
+  const handleAudioPress = (event: GestureResponderEvent) => {
+    event.stopPropagation();
+    onAudioPress?.();
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.wordRow}>
         <ThemedText style={styles.word}>{word}</ThemedText>
         {onAudioPress && (
           <Pressable
-            onPress={onAudioPress}
+            onPress={handleAudioPress}
             style={[styles.audioButton, { backgroundColor: colors.surface }]}
             accessibilityLabel="발음 듣기"
           >

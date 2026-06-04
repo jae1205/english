@@ -2,7 +2,7 @@
  * Progress Repository
  * Handles SRS state management for cards
  */
-import { getDatabase } from '../index';
+import { getDatabase, runInDatabaseTransaction } from '../index';
 import type { DbCardProgress, DbReviewLog, DeckStats } from '../types';
 import { dbProgressToCardState, cardStateToDbProgress } from '../types';
 import type { CardState, Rating } from '@/lib/srs';
@@ -40,7 +40,7 @@ export async function updateCardProgress(
   const db = await getDatabase();
   const now = Date.now();
 
-  await db.withExclusiveTransactionAsync(async (txn) => {
+  await runInDatabaseTransaction(async (txn) => {
     // Update progress
     await txn.runAsync(
       `UPDATE card_progress SET
@@ -296,7 +296,7 @@ export async function undoLastReview(cardId: string): Promise<CardState | null> 
 
   const prevState: CardState = JSON.parse(lastLog.prev_state);
 
-  await db.withExclusiveTransactionAsync(async (txn) => {
+  await runInDatabaseTransaction(async (txn) => {
     // Restore previous state
     await txn.runAsync(
       `UPDATE card_progress SET
