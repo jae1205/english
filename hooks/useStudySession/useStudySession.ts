@@ -186,6 +186,18 @@ function reducer(
         intervalPreviews: action.previews,
       };
 
+    case 'GO_TO_PREVIOUS_CARD':
+      return {
+        ...state,
+        currentIndex: Math.max(0, state.currentIndex - 1),
+      };
+
+    case 'GO_TO_NEXT_CARD':
+      return {
+        ...state,
+        currentIndex: Math.min(Math.max(0, state.cards.length - 1), state.currentIndex + 1),
+      };
+
     default:
       return state;
   }
@@ -325,6 +337,14 @@ export function useStudySession(deckId: string, studyDay?: number): UseStudySess
     }
   }, []);
 
+  const goToPreviousCard = useCallback(() => {
+    dispatch({ type: 'GO_TO_PREVIOUS_CARD' });
+  }, []);
+
+  const goToNextCard = useCallback(() => {
+    dispatch({ type: 'GO_TO_NEXT_CARD' });
+  }, []);
+
   // Initial load - reuse loadQueue callback
   useEffect(() => {
     loadQueue();
@@ -342,6 +362,8 @@ export function useStudySession(deckId: string, studyDay?: number): UseStudySess
     sessionStats: state.sessionStats,
     submitRating,
     undoRating,
+    goToPreviousCard,
+    goToNextCard,
     refresh: loadQueue,
   };
 }

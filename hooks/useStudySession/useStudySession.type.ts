@@ -43,7 +43,9 @@ export type StudySessionAction =
       rating: UIRating;
     }
   | { type: 'UNDO_SUCCESS'; cardId: string; restoredState: CardState }
-  | { type: 'SET_PREVIEWS'; previews: Record<UIRating, string> | null };
+  | { type: 'SET_PREVIEWS'; previews: Record<UIRating, string> | null }
+  | { type: 'GO_TO_PREVIOUS_CARD' }
+  | { type: 'GO_TO_NEXT_CARD' };
 
 export interface UseStudySessionOptions {
   deckId: string;
@@ -62,5 +64,7 @@ export interface UseStudySessionReturn {
   sessionStats: SessionStats;
   submitRating: (rating: UIRating) => Promise<void>;
   undoRating: () => Promise<void>;
+  goToPreviousCard: () => void;
+  goToNextCard: () => void;
   refresh: () => Promise<void>;
 }

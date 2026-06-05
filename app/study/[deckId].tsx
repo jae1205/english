@@ -47,6 +47,8 @@ export default function StudyScreen() {
     sessionStats,
     submitRating,
     undoRating,
+    goToPreviousCard,
+    goToNextCard,
   } = useStudySession(deckId ?? '', selectedDay);
 
   const [isRevealed, setIsRevealed] = useState(false);
@@ -74,6 +76,22 @@ export default function StudyScreen() {
   useEffect(() => {
     if (!currentCard || typeof window === 'undefined') return;
 
+    const handleNavigationKey = (event: KeyboardEvent) => {
+      if (isTextInputTarget(event.target) || event.repeat) {
+        return;
+      }
+
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        goToPreviousCard();
+      }
+
+      if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        goToNextCard();
+      }
+    };
+
     const handleSpace = (event: KeyboardEvent) => {
       if (isTextInputTarget(event.target) || event.repeat || (event.code !== 'Space' && event.key !== ' ')) {
         return;
@@ -84,9 +102,13 @@ export default function StudyScreen() {
       setIsRevealed(true);
     };
 
+    window.addEventListener('keydown', handleNavigationKey);
     window.addEventListener('keydown', handleSpace);
-    return () => window.removeEventListener('keydown', handleSpace);
-  }, [currentCard]);
+    return () => {
+      window.removeEventListener('keydown', handleNavigationKey);
+      window.removeEventListener('keydown', handleSpace);
+    };
+  }, [currentCard, goToPreviousCard, goToNextCard]);
 
   const handleClose = () => {
     router.back();
