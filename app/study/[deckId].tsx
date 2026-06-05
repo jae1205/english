@@ -448,7 +448,7 @@ function LearnMode({ cards, colors, compact }: { cards: PracticeCard[]; colors: 
   }
 
   return (
-    <ModeScrollBody compact={compact}>
+    <ModeScrollBody compact={compact} lowered>
       <View style={[styles.practicePanel, compact && styles.practicePanelCompact, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
         <View style={styles.panelHeader}>
           <ThemedText style={[styles.panelLabel, { color: colors.textMuted }]}>학습</ThemedText>
@@ -551,7 +551,7 @@ function TestMode({ cards, colors, compact }: { cards: PracticeCard[]; colors: A
   }
 
   return (
-    <ModeScrollBody compact={compact}>
+    <ModeScrollBody compact={compact} lowered>
       <View style={[styles.practicePanel, compact && styles.practicePanelCompact, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
         <View style={styles.panelHeader}>
           <ThemedText style={[styles.panelLabel, { color: colors.textMuted }]}>
@@ -648,7 +648,7 @@ function MatchMode({ cards, colors, compact }: { cards: PracticeCard[]; colors: 
   };
 
   return (
-    <ModeScrollBody compact={compact}>
+    <ModeScrollBody compact={compact} lowered>
       <View style={[styles.matchHeader, { borderColor: colors.border }]}>
         <View>
           <ThemedText style={styles.matchTitle}>매칭</ThemedText>
@@ -810,11 +810,23 @@ function ScorePill({ label, value, color }: { label: string; value: number | str
   );
 }
 
-function ModeScrollBody({ children, compact }: { children: React.ReactNode; compact?: boolean }) {
+function ModeScrollBody({
+  children,
+  compact,
+  lowered,
+}: {
+  children: React.ReactNode;
+  compact?: boolean;
+  lowered?: boolean;
+}) {
   return (
     <ScrollView
       style={styles.modeBody}
-      contentContainerStyle={[styles.modeContent, compact && styles.modeContentCompact]}
+      contentContainerStyle={[
+        styles.modeContent,
+        compact && styles.modeContentCompact,
+        compact && lowered && styles.modeContentLowered,
+      ]}
       showsVerticalScrollIndicator={false}
     >
       {children}
@@ -919,6 +931,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.sm,
     paddingBottom: Spacing.md,
     gap: Spacing.sm,
+  },
+  modeContentLowered: {
+    paddingTop: 34,
   },
   practicePanel: {
     borderWidth: StyleSheet.hairlineWidth,
