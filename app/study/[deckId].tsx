@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -53,6 +53,10 @@ export default function StudyScreen() {
 
   const [isRevealed, setIsRevealed] = useState(false);
 
+  const handleClose = useCallback(() => {
+    router.replace('/');
+  }, [router]);
+
   // Navigate to summary when session is complete
   useEffect(() => {
     if (isComplete && totalCards > 0) {
@@ -90,6 +94,11 @@ export default function StudyScreen() {
         event.preventDefault();
         goToNextCard();
       }
+
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        handleClose();
+      }
     };
 
     const handleSpace = (event: KeyboardEvent) => {
@@ -108,11 +117,7 @@ export default function StudyScreen() {
       window.removeEventListener('keydown', handleNavigationKey);
       window.removeEventListener('keydown', handleSpace);
     };
-  }, [currentCard, goToPreviousCard, goToNextCard]);
-
-  const handleClose = () => {
-    router.back();
-  };
+  }, [currentCard, goToPreviousCard, goToNextCard, handleClose]);
 
   const handleUndo = async () => {
     await undoRating();
