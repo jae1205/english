@@ -123,7 +123,7 @@ export default function StudyScreen() {
   const isCompactViewport = width <= 380 || visibleHeight <= 760;
   const isFlipViewport = isMobileViewport && width <= 380;
   const bottomPadding = isMobileViewport
-    ? Math.max(insets.bottom + browserChromeInset + 36, isFlipViewport ? 92 : 72)
+    ? Math.max(insets.bottom + browserChromeInset + 64, isFlipViewport ? 132 : 96)
     : insets.bottom + Spacing.xl;
   const practiceCards = useMemo(() => getPracticeCards(selectedDay), [selectedDay]);
 

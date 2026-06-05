@@ -25,20 +25,47 @@ export default function Root({ children }: PropsWithChildren) {
             __html: `
               html, body, #root {
                 background: ${backgroundColor} !important;
+                box-sizing: border-box;
               }
               html {
                 color-scheme: dark;
+                min-height: 100%;
+                height: auto !important;
               }
               body {
                 margin: 0;
+                min-height: 100%;
+                height: auto !important;
+                overflow-x: hidden !important;
+                overflow-y: auto !important;
                 overscroll-behavior: none;
               }
               #root {
+                background: ${backgroundColor} !important;
+                display: flex;
                 min-height: 100dvh;
+                padding-bottom: 0;
               }
               @supports (height: 100svh) {
                 #root {
                   min-height: 100svh;
+                }
+              }
+              @media (max-width: 600px) {
+                body {
+                  min-height: calc(100dvh + 144px);
+                }
+                #root {
+                  min-height: calc(100dvh + 144px);
+                  padding-bottom: 144px;
+                }
+                @supports (height: 100svh) {
+                  body {
+                    min-height: calc(100svh + 144px);
+                  }
+                  #root {
+                    min-height: calc(100svh + 144px);
+                  }
                 }
               }
             `,
