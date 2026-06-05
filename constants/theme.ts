@@ -138,11 +138,11 @@ export const Spacing = {
 } as const;
 
 export const BorderRadius = {
-  sm: 4,
-  md: 8,   // Default from Stitch (ROUND_EIGHT)
-  lg: 12,
-  xl: 16,
-  full: 9999,
+  sm: 0,
+  md: 0,
+  lg: 0,
+  xl: 0,
+  full: 0,
 } as const;
 
 // Font family from Stitch design: Lexend

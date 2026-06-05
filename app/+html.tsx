@@ -1,5 +1,4 @@
 import type { PropsWithChildren } from 'react';
-import { ScrollViewStyleReset } from 'expo-router/html';
 
 const backgroundColor = '#000000';
 
@@ -19,53 +18,36 @@ export default function Root({ children }: PropsWithChildren) {
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="msapplication-navbutton-color" content={backgroundColor} />
-        <ScrollViewStyleReset />
         <style
           dangerouslySetInnerHTML={{
             __html: `
               html, body, #root {
                 background: ${backgroundColor} !important;
                 box-sizing: border-box;
+                height: 100%;
+                margin: 0;
+                max-height: 100%;
+                min-height: 100%;
+                overflow: hidden !important;
+                overscroll-behavior: none;
+                width: 100%;
               }
               html {
                 color-scheme: dark;
-                min-height: 100%;
-                height: auto !important;
               }
               body {
-                margin: 0;
-                min-height: 100%;
-                height: auto !important;
-                overflow-x: hidden !important;
-                overflow-y: auto !important;
-                overscroll-behavior: none;
+                position: fixed;
+                inset: 0;
               }
               #root {
                 background: ${backgroundColor} !important;
                 display: flex;
-                min-height: 100dvh;
-                padding-bottom: 0;
               }
-              @supports (height: 100svh) {
-                #root {
-                  min-height: 100svh;
-                }
-              }
-              @media (max-width: 600px) {
-                body {
-                  min-height: calc(100dvh + 144px);
-                }
-                #root {
-                  min-height: calc(100dvh + 144px);
-                  padding-bottom: 144px;
-                }
-                @supports (height: 100svh) {
-                  body {
-                    min-height: calc(100svh + 144px);
-                  }
-                  #root {
-                    min-height: calc(100svh + 144px);
-                  }
+              @supports (height: 100dvh) {
+                html, body, #root {
+                  height: 100dvh;
+                  max-height: 100dvh;
+                  min-height: 100dvh;
                 }
               }
             `,

@@ -31,11 +31,11 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.medium,
     textTransform: 'uppercase',
     letterSpacing: 2,
-    marginBottom: 32,
+    marginBottom: 8,
   },
   hintCompact: {
     fontSize: 9,
     letterSpacing: 1,
-    marginBottom: 12,
+    marginBottom: 4,
   },
 });

@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { GestureResponderEvent, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { GestureResponderEvent, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 
 import { ThemedText } from '@/components/themed-text';
@@ -63,11 +63,7 @@ export function Flashcard({ front, back, stats, isRevealed, onReveal }: Flashcar
       {/* Answer Section - Only when revealed */}
       <Animated.View style={[styles.answerSection, isCompact && styles.answerSectionCompact, backAnimatedStyle]}>
         {isRevealed && (
-          <ScrollView
-            style={styles.scrollView}
-            contentContainerStyle={[styles.scrollContent, isCompact && styles.scrollContentCompact]}
-            showsVerticalScrollIndicator={false}
-          >
+          <View style={[styles.answerContent, isCompact && styles.answerContentCompact]}>
             <FlashcardBack
               definition={back.definition}
               examples={back.examples}
@@ -77,7 +73,7 @@ export function Flashcard({ front, back, stats, isRevealed, onReveal }: Flashcar
             {stats && (
               <CardStats reviews={stats.reviews} interval={stats.interval} ease={stats.ease} type={stats.type} />
             )}
-          </ScrollView>
+          </View>
         )}
       </Animated.View>
 
@@ -139,13 +135,11 @@ const styles = StyleSheet.create({
   answerSectionCompact: {
     paddingHorizontal: 0,
   },
-  scrollView: {
+  answerContent: {
     flex: 1,
+    minHeight: 0,
   },
-  scrollContent: {
-    flexGrow: 1,
-  },
-  scrollContentCompact: {
+  answerContentCompact: {
     paddingBottom: Spacing.sm,
   },
   divider: {

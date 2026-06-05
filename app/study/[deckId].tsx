@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Flashcard } from '@/components/flashcard';
@@ -117,14 +117,14 @@ export default function StudyScreen() {
   const colors = Colors[colorScheme];
   const isMobileViewport = width <= 600;
   const visibleHeight = visualViewport.height > 0 ? visualViewport.height : height;
-  const browserChromeInset = isMobileViewport
-    ? Math.max(0, height - visibleHeight - visualViewport.offsetTop)
-    : 0;
-  const isCompactViewport = width <= 380 || visibleHeight <= 760;
-  const isFlipViewport = isMobileViewport && width <= 380;
+  const isCompactViewport = isMobileViewport || width <= 380 || visibleHeight <= 760;
   const bottomPadding = isMobileViewport
-    ? Math.max(insets.bottom + browserChromeInset + 64, isFlipViewport ? 132 : 96)
+    ? Math.max(insets.bottom, Spacing.sm)
     : insets.bottom + Spacing.xl;
+  const viewportClampStyle =
+    isMobileViewport && visibleHeight > 0
+      ? { height: visibleHeight, maxHeight: visibleHeight, overflow: 'hidden' as const }
+      : null;
   const practiceCards = useMemo(() => getPracticeCards(selectedDay), [selectedDay]);
 
   const {
@@ -295,6 +295,7 @@ export default function StudyScreen() {
     <View
       style={[
         styles.container,
+        viewportClampStyle,
         {
           backgroundColor: colors.background,
           paddingTop: insets.top,
@@ -434,7 +435,7 @@ function LearnMode({ cards, colors, compact }: { cards: PracticeCard[]; colors: 
 
   if (isComplete) {
     return (
-      <ModeScrollBody compact={compact}>
+      <ModeBody compact={compact}>
         <View style={[styles.resultPanel, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
           <ThemedText style={styles.resultTitle}>학습 완료</ThemedText>
           <View style={styles.scoreRow}>
@@ -443,12 +444,12 @@ function LearnMode({ cards, colors, compact }: { cards: PracticeCard[]; colors: 
           </View>
           <ActionButton label="다시 학습" icon="refresh" colors={colors} onPress={handleRestart} />
         </View>
-      </ModeScrollBody>
+      </ModeBody>
     );
   }
 
   return (
-    <ModeScrollBody compact={compact} lowered>
+    <ModeBody compact={compact}>
       <View style={[styles.practicePanel, compact && styles.practicePanelCompact, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
         <View style={styles.panelHeader}>
           <ThemedText style={[styles.panelLabel, { color: colors.textMuted }]}>학습</ThemedText>
@@ -457,7 +458,7 @@ function LearnMode({ cards, colors, compact }: { cards: PracticeCard[]; colors: 
           </ThemedText>
         </View>
 
-        <View style={styles.promptBlock}>
+        <View style={[styles.promptBlock, compact && styles.promptBlockCompact]}>
           <View style={styles.wordLine}>
             <ThemedText style={[styles.promptWord, compact && styles.promptWordCompact]}>{currentCard.word}</ThemedText>
             <Pressable
@@ -475,6 +476,7 @@ function LearnMode({ cards, colors, compact }: { cards: PracticeCard[]; colors: 
 
         <OptionGrid
           answer={currentCard.definition}
+          compact={compact}
           colors={colors}
           disabled={Boolean(selectedAnswer)}
           options={options}
@@ -483,7 +485,7 @@ function LearnMode({ cards, colors, compact }: { cards: PracticeCard[]; colors: 
         />
 
         {selectedAnswer && (
-          <View style={[styles.feedbackRow, { borderColor: isCorrect ? colors.success : colors.warning }]}>
+          <View style={[styles.feedbackRow, compact && styles.feedbackRowCompact, { borderColor: isCorrect ? colors.success : colors.warning }]}>
             <Ionicons
               name={isCorrect ? 'checkmark-circle' : 'repeat'}
               size={18}
@@ -496,7 +498,7 @@ function LearnMode({ cards, colors, compact }: { cards: PracticeCard[]; colors: 
           </View>
         )}
       </View>
-    </ModeScrollBody>
+    </ModeBody>
   );
 }
 
@@ -525,7 +527,7 @@ function TestMode({ cards, colors, compact }: { cards: PracticeCard[]; colors: A
 
   if (isDone) {
     return (
-      <ModeScrollBody compact={compact}>
+      <ModeBody compact={compact}>
         <View style={[styles.resultPanel, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
           <ThemedText style={styles.resultTitle}>테스트 결과</ThemedText>
           <View style={styles.scoreRow}>
@@ -546,12 +548,12 @@ function TestMode({ cards, colors, compact }: { cards: PracticeCard[]; colors: A
 
           <ActionButton label="새 테스트" icon="refresh" colors={colors} onPress={handleRestart} />
         </View>
-      </ModeScrollBody>
+      </ModeBody>
     );
   }
 
   return (
-    <ModeScrollBody compact={compact} lowered>
+    <ModeBody compact={compact}>
       <View style={[styles.practicePanel, compact && styles.practicePanelCompact, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
         <View style={styles.panelHeader}>
           <ThemedText style={[styles.panelLabel, { color: colors.textMuted }]}>
@@ -566,6 +568,7 @@ function TestMode({ cards, colors, compact }: { cards: PracticeCard[]; colors: A
 
         <OptionGrid
           answer={currentQuestion.answer}
+          compact={compact}
           colors={colors}
           disabled={false}
           options={currentQuestion.options}
@@ -584,12 +587,13 @@ function TestMode({ cards, colors, compact }: { cards: PracticeCard[]; colors: A
             label={currentIndex === questions.length - 1 ? '채점' : '다음'}
             icon={currentIndex === questions.length - 1 ? 'checkmark' : 'arrow-forward'}
             colors={colors}
+            compact={compact}
             disabled={!selectedAnswer}
             onPress={() => setCurrentIndex((value) => value + 1)}
           />
         </View>
       </View>
-    </ModeScrollBody>
+    </ModeBody>
   );
 }
 
@@ -648,8 +652,8 @@ function MatchMode({ cards, colors, compact }: { cards: PracticeCard[]; colors: 
   };
 
   return (
-    <ModeScrollBody compact={compact} lowered>
-      <View style={[styles.matchHeader, { borderColor: colors.border }]}>
+    <ModeBody compact={compact}>
+      <View style={[styles.matchHeader, compact && styles.matchHeaderCompact, { borderColor: colors.border }]}>
         <View>
           <ThemedText style={styles.matchTitle}>매칭</ThemedText>
           <ThemedText style={[styles.panelCounter, { color: colors.textMuted }]}>
@@ -659,7 +663,7 @@ function MatchMode({ cards, colors, compact }: { cards: PracticeCard[]; colors: 
         <ActionButton label="새 판" icon="shuffle" colors={colors} onPress={handleNewBoard} compact />
       </View>
 
-      <View style={styles.matchGrid}>
+      <View style={[styles.matchGrid, compact && styles.matchGridCompact]}>
         {tiles.map((tile) => {
           const isSelected = selectedTileId === tile.tileId;
           const isMatched = matchedCardIds.has(tile.cardId);
@@ -705,12 +709,13 @@ function MatchMode({ cards, colors, compact }: { cards: PracticeCard[]; colors: 
           <ThemedText style={[styles.feedbackText, { color: colors.textSecondary }]}>완료</ThemedText>
         </View>
       )}
-    </ModeScrollBody>
+    </ModeBody>
   );
 }
 
 function OptionGrid({
   answer,
+  compact,
   colors,
   disabled,
   options,
@@ -719,6 +724,7 @@ function OptionGrid({
   onSelect,
 }: {
   answer: string;
+  compact?: boolean;
   colors: AppColors;
   disabled: boolean;
   options: string[];
@@ -727,7 +733,7 @@ function OptionGrid({
   onSelect: (answer: string) => void;
 }) {
   return (
-    <View style={styles.optionGrid}>
+    <View style={[styles.optionGrid, compact && styles.optionGridCompact]}>
       {options.map((option) => {
         const isSelected = selectedAnswer === option;
         const shouldReveal = revealAnswer && Boolean(selectedAnswer);
@@ -742,6 +748,7 @@ function OptionGrid({
             onPress={() => onSelect(option)}
             style={[
               styles.optionButton,
+              compact && styles.optionButtonCompact,
               {
                 backgroundColor: showCorrect
                   ? `${colors.success}33`
@@ -781,6 +788,8 @@ function ActionButton({
   compact?: boolean;
   onPress: () => void;
 }) {
+  const contentColor = disabled ? colors.textMuted : '#000000';
+
   return (
     <Pressable
       accessibilityRole="button"
@@ -795,8 +804,8 @@ function ActionButton({
         },
       ]}
     >
-      <Ionicons name={icon} size={16} color="#000000" />
-      <ThemedText style={styles.actionButtonText}>{label}</ThemedText>
+      <Ionicons name={icon} size={16} color={contentColor} />
+      <ThemedText style={[styles.actionButtonText, { color: contentColor }]}>{label}</ThemedText>
     </Pressable>
   );
 }
@@ -810,33 +819,31 @@ function ScorePill({ label, value, color }: { label: string; value: number | str
   );
 }
 
-function ModeScrollBody({
+function ModeBody({
   children,
   compact,
-  lowered,
 }: {
   children: React.ReactNode;
   compact?: boolean;
-  lowered?: boolean;
 }) {
   return (
-    <ScrollView
-      style={styles.modeBody}
-      contentContainerStyle={[
+    <View
+      style={[
+        styles.modeBody,
         styles.modeContent,
         compact && styles.modeContentCompact,
-        compact && lowered && styles.modeContentLowered,
       ]}
-      showsVerticalScrollIndicator={false}
     >
       {children}
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    minHeight: 0,
+    overflow: 'hidden',
   },
   centered: {
     justifyContent: 'center',
@@ -868,11 +875,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.lg,
     gap: Spacing.sm,
     marginBottom: Spacing.sm,
+    flexShrink: 0,
   },
   topControlsMobile: {
     paddingHorizontal: Spacing.sm,
-    gap: Spacing.xs,
-    marginBottom: Spacing.xs,
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
   },
   flashcardShell: {
     flex: 1,
@@ -890,7 +898,7 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.medium,
   },
   modeTabs: {
-    minHeight: 46,
+    minHeight: 44,
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: BorderRadius.md,
     flexDirection: 'row',
@@ -899,7 +907,7 @@ const styles = StyleSheet.create({
   },
   modeTab: {
     flex: 1,
-    minHeight: 38,
+    minHeight: 36,
     borderRadius: BorderRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
@@ -921,31 +929,36 @@ const styles = StyleSheet.create({
   },
   modeBody: {
     flex: 1,
+    minHeight: 0,
+    overflow: 'hidden',
   },
   modeContent: {
     paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.xl,
+    paddingBottom: 0,
     gap: Spacing.md,
   },
   modeContentCompact: {
     paddingHorizontal: Spacing.sm,
-    paddingBottom: Spacing.md,
+    paddingBottom: 0,
     gap: Spacing.sm,
   },
-  modeContentLowered: {
-    paddingTop: 34,
-  },
   practicePanel: {
+    flex: 1,
+    minHeight: 0,
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: BorderRadius.md,
     padding: Spacing.lg,
     gap: Spacing.lg,
+    justifyContent: 'space-between',
+    overflow: 'hidden',
   },
   practicePanelCompact: {
-    padding: Spacing.md,
-    gap: Spacing.md,
+    padding: Spacing.sm,
+    gap: Spacing.sm,
   },
   resultPanel: {
+    flex: 1,
+    justifyContent: 'center',
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: BorderRadius.md,
     padding: Spacing.lg,
@@ -971,6 +984,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: Spacing.xs,
     paddingVertical: Spacing.md,
+    flexShrink: 1,
+  },
+  promptBlockCompact: {
+    paddingVertical: Spacing.sm,
   },
   wordLine: {
     flexDirection: 'row',
@@ -1002,6 +1019,10 @@ const styles = StyleSheet.create({
   },
   optionGrid: {
     gap: Spacing.sm,
+    flexShrink: 0,
+  },
+  optionGridCompact: {
+    gap: Spacing.sm,
   },
   optionButton: {
     minHeight: 52,
@@ -1010,6 +1031,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
+  },
+  optionButtonCompact: {
+    minHeight: 44,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
   },
   optionText: {
     fontSize: 15,
@@ -1025,6 +1051,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
+    flexShrink: 0,
+  },
+  feedbackRowCompact: {
+    minHeight: 44,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
   },
   feedbackText: {
     flex: 1,
@@ -1043,10 +1075,11 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
   },
   actionButtonCompact: {
-    minHeight: 36,
+    minHeight: 34,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
   },
   actionButtonText: {
-    color: '#000000',
     fontSize: 14,
     fontFamily: FontFamily.semiBold,
   },
@@ -1083,11 +1116,12 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.bold,
     textAlign: 'center',
     paddingVertical: Spacing.lg,
+    flexShrink: 1,
   },
   testPromptCompact: {
     fontSize: 23,
     lineHeight: 30,
-    paddingVertical: Spacing.md,
+    paddingVertical: Spacing.sm,
   },
   testFooter: {
     alignItems: 'flex-end',
@@ -1119,19 +1153,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: Spacing.md,
+    flexShrink: 0,
+  },
+  matchHeaderCompact: {
+    minHeight: 56,
+    padding: Spacing.sm,
+    gap: Spacing.sm,
   },
   matchTitle: {
     fontSize: FontSize.lg,
     fontFamily: FontFamily.bold,
   },
   matchGrid: {
+    flex: 1,
+    minHeight: 0,
     flexDirection: 'row',
     flexWrap: 'wrap',
+    alignContent: 'stretch',
+    gap: Spacing.sm,
+    overflow: 'hidden',
+  },
+  matchGridCompact: {
     gap: Spacing.sm,
   },
   matchTile: {
     width: '48.5%',
-    minHeight: 78,
+    minHeight: 58,
+    flexGrow: 1,
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: BorderRadius.md,
     alignItems: 'center',
@@ -1141,7 +1189,7 @@ const styles = StyleSheet.create({
   },
   matchTileCompact: {
     width: '48%',
-    minHeight: 66,
+    minHeight: 44,
     paddingHorizontal: Spacing.xs,
   },
   matchTileText: {
@@ -1151,12 +1199,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   completeStrip: {
-    minHeight: 48,
+    minHeight: 40,
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: BorderRadius.md,
     paddingHorizontal: Spacing.md,
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
+    flexShrink: 0,
   },
 });
