@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { IconButton } from '@/components/ui/IconButton';
@@ -12,11 +12,13 @@ import type { StudyHeaderProps } from './StudyHeader.type';
 export function StudyHeader({ current, total, onClose, onUndo, canUndo }: StudyHeaderProps) {
   const colorScheme = useColorScheme() ?? 'dark';
   const colors = Colors[colorScheme];
+  const { width, height } = useWindowDimensions();
+  const isCompact = width <= 380 || height <= 740;
 
   const progress = total > 0 ? (current / total) * 100 : 0;
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, isCompact && styles.containerCompact]}>
       <View style={styles.topRow}>
         <IconButton
           icon={<Ionicons name='close' size={20} color={colors.textMuted} />}
@@ -25,10 +27,10 @@ export function StudyHeader({ current, total, onClose, onUndo, canUndo }: StudyH
         />
 
         <View style={styles.progressSection}>
-          <ThemedText style={[styles.label, { color: colors.textMuted }]}>Session Progress</ThemedText>
+          {!isCompact && <ThemedText style={[styles.label, { color: colors.textMuted }]}>Session Progress</ThemedText>}
           <View style={styles.progressRow}>
             <ThemedText style={[styles.currentCount, { color: colors.accent }]}>{current}</ThemedText>
-            <View style={styles.progressBarWrapper}>
+            <View style={[styles.progressBarWrapper, isCompact && styles.progressBarWrapperCompact]}>
               <ProgressBar progress={progress} height={4} />
             </View>
             <ThemedText style={[styles.totalCount, { color: colors.textMuted }]}>{total}</ThemedText>
@@ -50,6 +52,10 @@ const styles = StyleSheet.create({
   container: {
     paddingTop: Spacing.md,
     paddingBottom: Spacing.sm,
+  },
+  containerCompact: {
+    paddingTop: Spacing.xs,
+    paddingBottom: Spacing.xs,
   },
   topRow: {
     flexDirection: 'row',
@@ -77,6 +83,9 @@ const styles = StyleSheet.create({
   },
   progressBarWrapper: {
     width: 96,
+  },
+  progressBarWrapperCompact: {
+    width: 72,
   },
   totalCount: {
     fontSize: FontSize.xs,

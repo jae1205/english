@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Flashcard } from '@/components/flashcard';
@@ -85,8 +85,12 @@ export default function StudyScreen() {
   const selectedDay = normalizeStudyDay(day);
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { width, height } = useWindowDimensions();
   const colorScheme = useColorScheme() ?? 'dark';
   const colors = Colors[colorScheme];
+  const isMobileViewport = width <= 600;
+  const isCompactViewport = width <= 380 || height <= 740;
+  const bottomPadding = isMobileViewport ? Math.max(insets.bottom + 8, 12) : insets.bottom + Spacing.xl;
   const practiceCards = useMemo(() => getPracticeCards(selectedDay), [selectedDay]);
 
   const {
@@ -260,7 +264,7 @@ export default function StudyScreen() {
         {
           backgroundColor: colors.background,
           paddingTop: insets.top,
-          paddingBottom: insets.bottom + Spacing.xl,
+          paddingBottom: bottomPadding,
         },
       ]}
     >
@@ -272,25 +276,27 @@ export default function StudyScreen() {
         canUndo={activeMode === 'flashcards' && canUndo}
       />
 
-      <View style={styles.topControls}>
+      <View style={[styles.topControls, isMobileViewport && styles.topControlsMobile]}>
         {selectedDay && (
           <View style={[styles.dayBadge, { borderColor: colors.border, backgroundColor: colors.surfaceElevated }]}>
             <ThemedText style={[styles.dayBadgeText, { color: colors.textSecondary }]}>Day {selectedDay}</ThemedText>
           </View>
         )}
 
-        <ModeTabs activeMode={activeMode} colors={colors} onChange={setActiveMode} />
+        <ModeTabs activeMode={activeMode} colors={colors} compact={isCompactViewport} onChange={setActiveMode} />
       </View>
 
       {activeMode === 'flashcards' && currentCard && (
         <>
-          <Flashcard
-            front={currentCard.front}
-            back={currentCard.back}
-            stats={currentCard.stats}
-            isRevealed={isRevealed}
-            onReveal={handleReveal}
-          />
+          <View style={styles.flashcardShell}>
+            <Flashcard
+              front={currentCard.front}
+              back={currentCard.back}
+              stats={currentCard.stats}
+              isRevealed={isRevealed}
+              onReveal={handleReveal}
+            />
+          </View>
 
           {isRevealed ? (
             <RatingButtons onRate={handleRate} intervals={intervalPreviews ?? undefined} />
@@ -300,9 +306,9 @@ export default function StudyScreen() {
         </>
       )}
 
-      {activeMode === 'learn' && <LearnMode cards={practiceCards} colors={colors} />}
-      {activeMode === 'test' && <TestMode cards={practiceCards} colors={colors} />}
-      {activeMode === 'match' && <MatchMode cards={practiceCards} colors={colors} />}
+      {activeMode === 'learn' && <LearnMode cards={practiceCards} colors={colors} compact={isCompactViewport} />}
+      {activeMode === 'test' && <TestMode cards={practiceCards} colors={colors} compact={isCompactViewport} />}
+      {activeMode === 'match' && <MatchMode cards={practiceCards} colors={colors} compact={isCompactViewport} />}
     </View>
   );
 }
@@ -310,10 +316,12 @@ export default function StudyScreen() {
 function ModeTabs({
   activeMode,
   colors,
+  compact,
   onChange,
 }: {
   activeMode: StudyMode;
   colors: AppColors;
+  compact: boolean;
   onChange: (mode: StudyMode) => void;
 }) {
   return (
@@ -327,10 +335,10 @@ function ModeTabs({
             accessibilityRole="button"
             accessibilityLabel={`${mode.label} 모드`}
             onPress={() => onChange(mode.id)}
-            style={[styles.modeTab, isActive && { backgroundColor: colors.accent }]}
+            style={[styles.modeTab, compact && styles.modeTabCompact, isActive && { backgroundColor: colors.accent }]}
           >
-            <Ionicons name={mode.icon} size={16} color={isActive ? '#000000' : colors.textMuted} />
-            <ThemedText style={[styles.modeTabText, { color: isActive ? '#000000' : colors.textSecondary }]}>
+            <Ionicons name={mode.icon} size={compact ? 14 : 16} color={isActive ? '#000000' : colors.textMuted} />
+            <ThemedText style={[styles.modeTabText, compact && styles.modeTabTextCompact, { color: isActive ? '#000000' : colors.textSecondary }]}>
               {mode.label}
             </ThemedText>
           </Pressable>
@@ -340,7 +348,7 @@ function ModeTabs({
   );
 }
 
-function LearnMode({ cards, colors }: { cards: PracticeCard[]; colors: AppColors }) {
+function LearnMode({ cards, colors, compact }: { cards: PracticeCard[]; colors: AppColors; compact: boolean }) {
   const [queue, setQueue] = useState<PracticeCard[]>(() => shuffleItems(cards));
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
@@ -392,7 +400,7 @@ function LearnMode({ cards, colors }: { cards: PracticeCard[]; colors: AppColors
 
   if (isComplete) {
     return (
-      <ModeScrollBody>
+      <ModeScrollBody compact={compact}>
         <View style={[styles.resultPanel, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
           <ThemedText style={styles.resultTitle}>학습 완료</ThemedText>
           <View style={styles.scoreRow}>
@@ -406,8 +414,8 @@ function LearnMode({ cards, colors }: { cards: PracticeCard[]; colors: AppColors
   }
 
   return (
-    <ModeScrollBody>
-      <View style={[styles.practicePanel, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+    <ModeScrollBody compact={compact}>
+      <View style={[styles.practicePanel, compact && styles.practicePanelCompact, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
         <View style={styles.panelHeader}>
           <ThemedText style={[styles.panelLabel, { color: colors.textMuted }]}>학습</ThemedText>
           <ThemedText style={[styles.panelCounter, { color: colors.textMuted }]}>
@@ -417,7 +425,7 @@ function LearnMode({ cards, colors }: { cards: PracticeCard[]; colors: AppColors
 
         <View style={styles.promptBlock}>
           <View style={styles.wordLine}>
-            <ThemedText style={styles.promptWord}>{currentCard.word}</ThemedText>
+            <ThemedText style={[styles.promptWord, compact && styles.promptWordCompact]}>{currentCard.word}</ThemedText>
             <Pressable
               accessibilityLabel="발음 듣기"
               onPress={() => speakWord(currentCard.word, getCardAudioId(currentCard))}
@@ -458,7 +466,7 @@ function LearnMode({ cards, colors }: { cards: PracticeCard[]; colors: AppColors
   );
 }
 
-function TestMode({ cards, colors }: { cards: PracticeCard[]; colors: AppColors }) {
+function TestMode({ cards, colors, compact }: { cards: PracticeCard[]; colors: AppColors; compact: boolean }) {
   const [questions, setQuestions] = useState<TestQuestion[]>(() => buildTestQuestions(cards));
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -483,7 +491,7 @@ function TestMode({ cards, colors }: { cards: PracticeCard[]; colors: AppColors 
 
   if (isDone) {
     return (
-      <ModeScrollBody>
+      <ModeScrollBody compact={compact}>
         <View style={[styles.resultPanel, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
           <ThemedText style={styles.resultTitle}>테스트 결과</ThemedText>
           <View style={styles.scoreRow}>
@@ -509,8 +517,8 @@ function TestMode({ cards, colors }: { cards: PracticeCard[]; colors: AppColors 
   }
 
   return (
-    <ModeScrollBody>
-      <View style={[styles.practicePanel, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+    <ModeScrollBody compact={compact}>
+      <View style={[styles.practicePanel, compact && styles.practicePanelCompact, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
         <View style={styles.panelHeader}>
           <ThemedText style={[styles.panelLabel, { color: colors.textMuted }]}>
             {currentQuestion.direction === 'word-to-meaning' ? '뜻 고르기' : '단어 고르기'}
@@ -520,7 +528,7 @@ function TestMode({ cards, colors }: { cards: PracticeCard[]; colors: AppColors 
           </ThemedText>
         </View>
 
-        <ThemedText style={styles.testPrompt}>{currentQuestion.prompt}</ThemedText>
+        <ThemedText style={[styles.testPrompt, compact && styles.testPromptCompact]}>{currentQuestion.prompt}</ThemedText>
 
         <OptionGrid
           answer={currentQuestion.answer}
@@ -551,7 +559,7 @@ function TestMode({ cards, colors }: { cards: PracticeCard[]; colors: AppColors 
   );
 }
 
-function MatchMode({ cards, colors }: { cards: PracticeCard[]; colors: AppColors }) {
+function MatchMode({ cards, colors, compact }: { cards: PracticeCard[]; colors: AppColors; compact: boolean }) {
   const [tiles, setTiles] = useState<MatchTile[]>(() => shuffleItems(createMatchTiles(cards)));
   const [selectedTileId, setSelectedTileId] = useState<string | null>(null);
   const [matchedCardIds, setMatchedCardIds] = useState<Set<string>>(() => new Set());
@@ -606,7 +614,7 @@ function MatchMode({ cards, colors }: { cards: PracticeCard[]; colors: AppColors
   };
 
   return (
-    <ModeScrollBody>
+    <ModeScrollBody compact={compact}>
       <View style={[styles.matchHeader, { borderColor: colors.border }]}>
         <View>
           <ThemedText style={styles.matchTitle}>매칭</ThemedText>
@@ -631,6 +639,7 @@ function MatchMode({ cards, colors }: { cards: PracticeCard[]; colors: AppColors
               onPress={() => handleTilePress(tile)}
               style={[
                 styles.matchTile,
+                compact && styles.matchTileCompact,
                 {
                   backgroundColor: isMatched ? `${colors.success}33` : colors.surfaceElevated,
                   borderColor: isWrong
@@ -767,9 +776,13 @@ function ScorePill({ label, value, color }: { label: string; value: number | str
   );
 }
 
-function ModeScrollBody({ children }: { children: React.ReactNode }) {
+function ModeScrollBody({ children, compact }: { children: React.ReactNode; compact?: boolean }) {
   return (
-    <ScrollView style={styles.modeBody} contentContainerStyle={styles.modeContent} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      style={styles.modeBody}
+      contentContainerStyle={[styles.modeContent, compact && styles.modeContentCompact]}
+      showsVerticalScrollIndicator={false}
+    >
       {children}
     </ScrollView>
   );
@@ -810,6 +823,15 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     marginBottom: Spacing.sm,
   },
+  topControlsMobile: {
+    paddingHorizontal: Spacing.sm,
+    gap: Spacing.xs,
+    marginBottom: Spacing.xs,
+  },
+  flashcardShell: {
+    flex: 1,
+    minHeight: 0,
+  },
   dayBadge: {
     alignSelf: 'center',
     borderWidth: StyleSheet.hairlineWidth,
@@ -839,9 +861,17 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: Spacing.xs,
   },
+  modeTabCompact: {
+    minHeight: 34,
+    gap: 4,
+    paddingHorizontal: 2,
+  },
   modeTabText: {
     fontSize: 13,
     fontFamily: FontFamily.semiBold,
+  },
+  modeTabTextCompact: {
+    fontSize: 12,
   },
   modeBody: {
     flex: 1,
@@ -851,11 +881,20 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.xl,
     gap: Spacing.md,
   },
+  modeContentCompact: {
+    paddingHorizontal: Spacing.sm,
+    paddingBottom: Spacing.md,
+    gap: Spacing.sm,
+  },
   practicePanel: {
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: BorderRadius.md,
     padding: Spacing.lg,
     gap: Spacing.lg,
+  },
+  practicePanelCompact: {
+    padding: Spacing.md,
+    gap: Spacing.md,
   },
   resultPanel: {
     borderWidth: StyleSheet.hairlineWidth,
@@ -896,6 +935,10 @@ const styles = StyleSheet.create({
     lineHeight: 42,
     fontFamily: FontFamily.bold,
     textAlign: 'center',
+  },
+  promptWordCompact: {
+    fontSize: 29,
+    lineHeight: 36,
   },
   phoneticText: {
     fontSize: FontSize.sm,
@@ -992,6 +1035,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingVertical: Spacing.lg,
   },
+  testPromptCompact: {
+    fontSize: 23,
+    lineHeight: 30,
+    paddingVertical: Spacing.md,
+  },
   testFooter: {
     alignItems: 'flex-end',
   },
@@ -1041,6 +1089,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.sm,
+  },
+  matchTileCompact: {
+    width: '48%',
+    minHeight: 66,
+    paddingHorizontal: Spacing.xs,
   },
   matchTileText: {
     fontSize: 14,

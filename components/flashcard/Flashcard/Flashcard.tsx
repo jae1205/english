@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { GestureResponderEvent, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { GestureResponderEvent, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, withTiming } from 'react-native-reanimated';
 
 import { ThemedText } from '@/components/themed-text';
@@ -16,6 +16,9 @@ const ANIMATION_DURATION = 200;
 export function Flashcard({ front, back, stats, isRevealed, onReveal }: FlashcardProps) {
   const colorScheme = useColorScheme() ?? 'dark';
   const colors = Colors[colorScheme];
+  const { width, height } = useWindowDimensions();
+  const isCompact = width <= 380 || height <= 740;
+  const isVeryShort = height <= 680;
 
   const handleAudioPress = (event: GestureResponderEvent) => {
     event.stopPropagation();
@@ -35,11 +38,13 @@ export function Flashcard({ front, back, stats, isRevealed, onReveal }: Flashcar
       <View
         style={[
           styles.wordSection,
+          isCompact && styles.wordSectionCompact,
+          isVeryShort && styles.wordSectionVeryShort,
           isRevealed && { borderBottomColor: colors.border, borderBottomWidth: 1, paddingHorizontal: Spacing.sm },
         ]}
       >
         <View style={styles.wordRow}>
-          <ThemedText style={styles.word}>{front.word}</ThemedText>
+          <ThemedText style={[styles.word, isCompact && styles.wordCompact]}>{front.word}</ThemedText>
           {front.onAudioPress && (
             <Pressable
               onPress={handleAudioPress}
@@ -56,11 +61,11 @@ export function Flashcard({ front, back, stats, isRevealed, onReveal }: Flashcar
       </View>
 
       {/* Answer Section - Only when revealed */}
-      <Animated.View style={[styles.answerSection, backAnimatedStyle]}>
+      <Animated.View style={[styles.answerSection, isCompact && styles.answerSectionCompact, backAnimatedStyle]}>
         {isRevealed && (
           <ScrollView
             style={styles.scrollView}
-            contentContainerStyle={styles.scrollContent}
+            contentContainerStyle={[styles.scrollContent, isCompact && styles.scrollContentCompact]}
             showsVerticalScrollIndicator={false}
           >
             <FlashcardBack
@@ -85,11 +90,18 @@ export function Flashcard({ front, back, stats, isRevealed, onReveal }: Flashcar
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    minHeight: 0,
   },
   wordSection: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 42,
+  },
+  wordSectionCompact: {
+    paddingVertical: 26,
+  },
+  wordSectionVeryShort: {
+    paddingVertical: 18,
   },
   wordRow: {
     flexDirection: 'row',
@@ -101,7 +113,11 @@ const styles = StyleSheet.create({
     lineHeight: 44,
     fontFamily: FontFamily.bold,
     textAlign: 'center',
-    letterSpacing: -0.5,
+    letterSpacing: 0,
+  },
+  wordCompact: {
+    fontSize: 30,
+    lineHeight: 38,
   },
   audioButton: {
     width: 32,
@@ -117,13 +133,20 @@ const styles = StyleSheet.create({
   },
   answerSection: {
     flex: 1,
+    minHeight: 0,
     paddingHorizontal: Spacing.sm,
+  },
+  answerSectionCompact: {
+    paddingHorizontal: 0,
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
     flexGrow: 1,
+  },
+  scrollContentCompact: {
+    paddingBottom: Spacing.sm,
   },
   divider: {
     height: 1,

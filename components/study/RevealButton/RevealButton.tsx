@@ -1,4 +1,4 @@
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, useWindowDimensions, View } from 'react-native';
 
 import { ThemedText } from '@/components/themed-text';
 import { Colors, FontFamily } from '@/constants/theme';
@@ -9,10 +9,14 @@ import type { RevealButtonProps } from './RevealButton.type';
 export function RevealButton({ disabled = false }: RevealButtonProps) {
   const colorScheme = useColorScheme() ?? 'dark';
   const colors = Colors[colorScheme];
+  const { width, height } = useWindowDimensions();
+  const isCompact = width <= 380 || height <= 740;
 
   return (
     <View style={[styles.container, { opacity: disabled ? 0.5 : 1 }]}>
-      <ThemedText style={[styles.hint, { color: colors.borderMuted }]}>Tap to reveal answer</ThemedText>
+      <ThemedText style={[styles.hint, isCompact && styles.hintCompact, { color: colors.borderMuted }]}>
+        Tap to reveal answer
+      </ThemedText>
     </View>
   );
 }
@@ -28,5 +32,10 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 2,
     marginBottom: 32,
+  },
+  hintCompact: {
+    fontSize: 9,
+    letterSpacing: 1,
+    marginBottom: 12,
   },
 });

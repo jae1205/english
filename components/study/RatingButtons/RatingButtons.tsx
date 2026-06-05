@@ -1,5 +1,5 @@
 import * as Haptics from 'expo-haptics';
-import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 
 import { ThemedText } from '@/components/themed-text';
@@ -29,6 +29,8 @@ interface RatingButtonProps {
 function RatingButton({ rating, interval, onPress, disabled }: RatingButtonProps) {
   const colorScheme = useColorScheme() ?? 'dark';
   const colors = Colors[colorScheme];
+  const { width, height } = useWindowDimensions();
+  const isCompact = width <= 380 || height <= 740;
   const config = RATING_CONFIG[rating];
   const scale = useSharedValue(1);
   const isPressed = useSharedValue(false);
@@ -57,23 +59,30 @@ function RatingButton({ rating, interval, onPress, disabled }: RatingButtonProps
 
   return (
     <View style={styles.buttonWrapper}>
-      {interval && <ThemedText style={[styles.interval, { color: colors.textMuted }]}>{interval}</ThemedText>}
+      {interval && (
+        <ThemedText style={[styles.interval, isCompact && styles.intervalCompact, { color: colors.textMuted }]}>
+          {interval}
+        </ThemedText>
+      )}
       <AnimatedPressable
         onPress={handlePress}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
         disabled={disabled}
-        style={[styles.button, animatedStyle, { opacity: disabled ? 0.5 : 1 }]}
+        style={[styles.button, isCompact && styles.buttonCompact, animatedStyle, { opacity: disabled ? 0.5 : 1 }]}
       >
-        <ThemedText style={[styles.label, { color: config.color }]}>{config.label}</ThemedText>
+        <ThemedText style={[styles.label, isCompact && styles.labelCompact, { color: config.color }]}>{config.label}</ThemedText>
       </AnimatedPressable>
     </View>
   );
 }
 
 export function RatingButtons({ onRate, intervals, disabled = false }: RatingButtonsProps) {
+  const { width, height } = useWindowDimensions();
+  const isCompact = width <= 380 || height <= 740;
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, isCompact && styles.containerCompact]}>
       {RATINGS.map((rating) => (
         <RatingButton
           key={rating}
@@ -91,6 +100,11 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     paddingHorizontal: Spacing.sm,
+    gap: 4,
+    flexShrink: 0,
+  },
+  containerCompact: {
+    paddingHorizontal: 6,
   },
   buttonWrapper: {
     flex: 1,
@@ -101,6 +115,10 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.regular,
     marginBottom: 4,
   },
+  intervalCompact: {
+    fontSize: 9,
+    marginBottom: 2,
+  },
   button: {
     width: '100%',
     paddingVertical: 12,
@@ -108,8 +126,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  buttonCompact: {
+    paddingVertical: 9,
+    borderRadius: BorderRadius.md,
+  },
   label: {
     fontSize: 12,
     fontFamily: FontFamily.bold,
+  },
+  labelCompact: {
+    fontSize: 11,
   },
 });
