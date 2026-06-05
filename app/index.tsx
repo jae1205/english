@@ -10,13 +10,16 @@ import { Colors, FontFamily, Spacing, BorderRadius } from '@/constants/theme';
 import { useColorScheme, useDecks } from '@/hooks';
 import { forceSeedDatabase } from '@/lib/db';
 
-const DAY_OPTIONS: Array<{ label: string; value: number | 'all' }> = [
+const DAY_OPTIONS: { label: string; value: number | 'all' }[] = [
   { label: '전체', value: 'all' },
   ...Array.from({ length: 15 }, (_, index) => ({
     label: `Day ${index + 1}`,
     value: index + 1,
   })),
 ];
+const DAY_OPTION_ROWS = Array.from({ length: Math.ceil(DAY_OPTIONS.length / 4) }, (_, rowIndex) =>
+  DAY_OPTIONS.slice(rowIndex * 4, rowIndex * 4 + 4)
+);
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -155,38 +158,42 @@ export default function HomeScreen() {
               },
             ]}
           >
-            {DAY_OPTIONS.map((option) => {
-              const isSelected = option.value === selectedDay;
+            {DAY_OPTION_ROWS.map((row, rowIndex) => (
+              <View key={rowIndex} style={styles.dayOptionRow}>
+                {row.map((option) => {
+                  const isSelected = option.value === selectedDay;
 
-              return (
-                <Pressable
-                  key={option.value}
-                  accessibilityRole="button"
-                  onPress={() => {
-                    setSelectedDay(option.value);
-                    setIsDayMenuOpen(false);
-                  }}
-                  style={[
-                    styles.dayOption,
-                    {
-                      backgroundColor: isSelected ? colors.accent : colors.surface,
-                      borderColor: isSelected ? colors.accent : colors.border,
-                    },
-                  ]}
-                >
-                  <ThemedText
-                    style={[
-                      styles.dayOptionText,
-                      {
-                        color: isSelected ? '#000000' : colors.textSecondary,
-                      },
-                    ]}
-                  >
-                    {option.label}
-                  </ThemedText>
-                </Pressable>
-              );
-            })}
+                  return (
+                    <Pressable
+                      key={option.value}
+                      accessibilityRole="button"
+                      onPress={() => {
+                        setSelectedDay(option.value);
+                        setIsDayMenuOpen(false);
+                      }}
+                      style={[
+                        styles.dayOption,
+                        {
+                          backgroundColor: isSelected ? colors.accent : colors.surface,
+                          borderColor: isSelected ? colors.accent : colors.border,
+                        },
+                      ]}
+                    >
+                      <ThemedText
+                        style={[
+                          styles.dayOptionText,
+                          {
+                            color: isSelected ? '#000000' : colors.textSecondary,
+                          },
+                        ]}
+                      >
+                        {option.label}
+                      </ThemedText>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            ))}
           </View>
         )}
       </View>
@@ -258,12 +265,15 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: BorderRadius.md,
     padding: Spacing.sm,
+    gap: Spacing.sm,
+  },
+  dayOptionRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: Spacing.sm,
   },
   dayOption: {
-    minWidth: 72,
+    flex: 1,
+    minWidth: 0,
     minHeight: 36,
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: BorderRadius.md,
