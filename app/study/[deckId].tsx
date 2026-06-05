@@ -44,6 +44,32 @@ const MODE_OPTIONS: ModeOption[] = [
   { id: 'match', label: '매칭', icon: 'grid-outline' },
 ];
 
+function useVisualViewportSize() {
+  const [viewport, setViewport] = useState({ height: 0, offsetTop: 0 });
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.visualViewport) return;
+
+    const updateViewport = () => {
+      setViewport({
+        height: window.visualViewport?.height ?? 0,
+        offsetTop: window.visualViewport?.offsetTop ?? 0,
+      });
+    };
+
+    updateViewport();
+    window.visualViewport.addEventListener('resize', updateViewport);
+    window.visualViewport.addEventListener('scroll', updateViewport);
+
+    return () => {
+      window.visualViewport?.removeEventListener('resize', updateViewport);
+      window.visualViewport?.removeEventListener('scroll', updateViewport);
+    };
+  }, []);
+
+  return viewport;
+}
+
 function isTextInputTarget(target: EventTarget | null): boolean {
   const element = target as HTMLElement | null;
 
@@ -86,11 +112,19 @@ export default function StudyScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
+  const visualViewport = useVisualViewportSize();
   const colorScheme = useColorScheme() ?? 'dark';
   const colors = Colors[colorScheme];
   const isMobileViewport = width <= 600;
-  const isCompactViewport = width <= 380 || height <= 740;
-  const bottomPadding = isMobileViewport ? Math.max(insets.bottom + 8, 12) : insets.bottom + Spacing.xl;
+  const visibleHeight = visualViewport.height > 0 ? visualViewport.height : height;
+  const browserChromeInset = isMobileViewport
+    ? Math.max(0, height - visibleHeight - visualViewport.offsetTop)
+    : 0;
+  const isCompactViewport = width <= 380 || visibleHeight <= 760;
+  const isFlipViewport = isMobileViewport && width <= 380;
+  const bottomPadding = isMobileViewport
+    ? Math.max(insets.bottom + browserChromeInset + 36, isFlipViewport ? 92 : 72)
+    : insets.bottom + Spacing.xl;
   const practiceCards = useMemo(() => getPracticeCards(selectedDay), [selectedDay]);
 
   const {

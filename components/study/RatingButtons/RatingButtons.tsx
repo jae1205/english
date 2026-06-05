@@ -100,11 +100,13 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     paddingHorizontal: Spacing.sm,
+    paddingBottom: Spacing.xs,
     gap: 4,
     flexShrink: 0,
   },
   containerCompact: {
     paddingHorizontal: 6,
+    paddingBottom: 18,
   },
   buttonWrapper: {
     flex: 1,
