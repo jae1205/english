@@ -1,14 +1,48 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Flashcard } from '@/components/flashcard';
 import { RatingButtons, RevealButton, StudyHeader } from '@/components/study';
 import type { Rating } from '@/components/study/RatingButtons';
 import { ThemedText } from '@/components/themed-text';
-import { Colors, FontFamily, Spacing } from '@/constants/theme';
+import { BorderRadius, Colors, FontFamily, FontSize, Spacing } from '@/constants/theme';
 import { useColorScheme, useStudySession } from '@/hooks';
+import { speakWord } from '@/lib/audio/speech';
+import {
+  buildOptions,
+  buildTestQuestions,
+  getCardAudioId,
+  getPracticeCards,
+  shuffleItems,
+  type PracticeCard,
+  type TestQuestion,
+} from '@/lib/study-practice';
+
+type StudyMode = 'flashcards' | 'learn' | 'test' | 'match';
+type AppColors = (typeof Colors)[keyof typeof Colors];
+
+interface ModeOption {
+  id: StudyMode;
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+}
+
+interface MatchTile {
+  tileId: string;
+  cardId: string;
+  kind: 'word' | 'definition';
+  text: string;
+}
+
+const MODE_OPTIONS: ModeOption[] = [
+  { id: 'flashcards', label: '카드', icon: 'albums-outline' },
+  { id: 'learn', label: '학습', icon: 'school-outline' },
+  { id: 'test', label: '테스트', icon: 'checkbox-outline' },
+  { id: 'match', label: '매칭', icon: 'grid-outline' },
+];
 
 function isTextInputTarget(target: EventTarget | null): boolean {
   const element = target as HTMLElement | null;
@@ -27,6 +61,25 @@ function normalizeStudyDay(day: string | string[] | undefined): number | undefin
   return Number.isInteger(numericDay) && numericDay >= 1 && numericDay <= 15 ? numericDay : undefined;
 }
 
+function createMatchTiles(cards: PracticeCard[]): MatchTile[] {
+  return shuffleItems(cards)
+    .slice(0, Math.min(6, cards.length))
+    .flatMap((card) => [
+      {
+        tileId: `${card.id}-word`,
+        cardId: card.id,
+        kind: 'word' as const,
+        text: card.word,
+      },
+      {
+        tileId: `${card.id}-definition`,
+        cardId: card.id,
+        kind: 'definition' as const,
+        text: card.definition,
+      },
+    ]);
+}
+
 export default function StudyScreen() {
   const { deckId, day } = useLocalSearchParams<{ deckId: string; day?: string }>();
   const selectedDay = normalizeStudyDay(day);
@@ -34,6 +87,7 @@ export default function StudyScreen() {
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme() ?? 'dark';
   const colors = Colors[colorScheme];
+  const practiceCards = useMemo(() => getPracticeCards(selectedDay), [selectedDay]);
 
   const {
     isLoading,
@@ -51,15 +105,15 @@ export default function StudyScreen() {
     goToNextCard,
   } = useStudySession(deckId ?? '', selectedDay);
 
+  const [activeMode, setActiveMode] = useState<StudyMode>('flashcards');
   const [isRevealed, setIsRevealed] = useState(false);
 
   const handleClose = useCallback(() => {
     router.replace('/');
   }, [router]);
 
-  // Navigate to summary when session is complete
   useEffect(() => {
-    if (isComplete && totalCards > 0) {
+    if (activeMode === 'flashcards' && isComplete && totalCards > 0) {
       router.replace({
         pathname: '/study/summary',
         params: {
@@ -70,15 +124,30 @@ export default function StudyScreen() {
         },
       });
     }
-  }, [isComplete, totalCards, sessionStats, router]);
+  }, [activeMode, isComplete, totalCards, sessionStats, router]);
 
-  // Reset reveal state when card changes
   useEffect(() => {
     setIsRevealed(false);
-  }, [currentCard?.id]);
+  }, [currentCard?.id, activeMode]);
 
   useEffect(() => {
-    if (!currentCard || typeof window === 'undefined') return;
+    if (typeof window === 'undefined') return;
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || isTextInputTarget(event.target)) {
+        return;
+      }
+
+      event.preventDefault();
+      handleClose();
+    };
+
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [handleClose]);
+
+  useEffect(() => {
+    if (activeMode !== 'flashcards' || !currentCard || typeof window === 'undefined') return;
 
     const handleNavigationKey = (event: KeyboardEvent) => {
       if (isTextInputTarget(event.target) || event.repeat) {
@@ -93,11 +162,6 @@ export default function StudyScreen() {
       if (event.key === 'ArrowRight') {
         event.preventDefault();
         goToNextCard();
-      }
-
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        handleClose();
       }
     };
 
@@ -117,7 +181,7 @@ export default function StudyScreen() {
       window.removeEventListener('keydown', handleNavigationKey);
       window.removeEventListener('keydown', handleSpace);
     };
-  }, [currentCard, goToPreviousCard, goToNextCard, handleClose]);
+  }, [activeMode, currentCard, goToPreviousCard, goToNextCard]);
 
   const handleUndo = async () => {
     await undoRating();
@@ -134,7 +198,7 @@ export default function StudyScreen() {
   };
 
   useEffect(() => {
-    if (!currentCard || !isRevealed || typeof window === 'undefined') return;
+    if (activeMode !== 'flashcards' || !currentCard || !isRevealed || typeof window === 'undefined') return;
 
     const ratingByKey: Record<string, Rating> = {
       '1': 'again',
@@ -156,18 +220,16 @@ export default function StudyScreen() {
 
     window.addEventListener('keydown', handleRatingKey);
     return () => window.removeEventListener('keydown', handleRatingKey);
-  }, [currentCard, isRevealed, submitRating]);
+  }, [activeMode, currentCard, isRevealed, submitRating]);
 
-  // Loading state
   if (isLoading) {
     return (
       <View style={[styles.container, styles.centered, { backgroundColor: colors.background, paddingTop: insets.top }]}>
-        <ActivityIndicator size='large' color={colors.accent} />
+        <ActivityIndicator size="large" color={colors.accent} />
       </View>
     );
   }
 
-  // Error state
   if (error) {
     return (
       <View style={[styles.container, styles.centered, { backgroundColor: colors.background, paddingTop: insets.top }]}>
@@ -177,17 +239,19 @@ export default function StudyScreen() {
     );
   }
 
-  // No cards to study
-  if (!currentCard) {
+  if (activeMode === 'flashcards' && !currentCard) {
     return (
       <View style={[styles.container, styles.centered, { backgroundColor: colors.background, paddingTop: insets.top }]}>
         <ThemedText style={styles.emptyText}>학습할 카드가 없습니다</ThemedText>
-        <ThemedText style={styles.emptyMessage} onPress={() => router.back()}>
+        <ThemedText style={styles.emptyMessage} onPress={handleClose}>
           돌아가기
         </ThemedText>
       </View>
     );
   }
+
+  const headerCurrent = activeMode === 'flashcards' ? currentIndex + 1 : practiceCards.length;
+  const headerTotal = activeMode === 'flashcards' ? totalCards : practiceCards.length;
 
   return (
     <View
@@ -201,29 +265,513 @@ export default function StudyScreen() {
       ]}
     >
       <StudyHeader
-        current={currentIndex + 1}
-        total={totalCards}
+        current={headerCurrent}
+        total={headerTotal}
         onClose={handleClose}
         onUndo={handleUndo}
-        canUndo={canUndo}
+        canUndo={activeMode === 'flashcards' && canUndo}
       />
 
-      {selectedDay && (
-        <View style={[styles.dayBadge, { borderColor: colors.border, backgroundColor: colors.surfaceElevated }]}>
-          <ThemedText style={[styles.dayBadgeText, { color: colors.textSecondary }]}>Day {selectedDay}</ThemedText>
-        </View>
+      <View style={styles.topControls}>
+        {selectedDay && (
+          <View style={[styles.dayBadge, { borderColor: colors.border, backgroundColor: colors.surfaceElevated }]}>
+            <ThemedText style={[styles.dayBadgeText, { color: colors.textSecondary }]}>Day {selectedDay}</ThemedText>
+          </View>
+        )}
+
+        <ModeTabs activeMode={activeMode} colors={colors} onChange={setActiveMode} />
+      </View>
+
+      {activeMode === 'flashcards' && currentCard && (
+        <>
+          <Flashcard
+            front={currentCard.front}
+            back={currentCard.back}
+            stats={currentCard.stats}
+            isRevealed={isRevealed}
+            onReveal={handleReveal}
+          />
+
+          {isRevealed ? (
+            <RatingButtons onRate={handleRate} intervals={intervalPreviews ?? undefined} />
+          ) : (
+            <RevealButton />
+          )}
+        </>
       )}
 
-      <Flashcard
-        front={currentCard.front}
-        back={currentCard.back}
-        stats={currentCard.stats}
-        isRevealed={isRevealed}
-        onReveal={handleReveal}
-      />
-
-      {isRevealed ? <RatingButtons onRate={handleRate} intervals={intervalPreviews ?? undefined} /> : <RevealButton />}
+      {activeMode === 'learn' && <LearnMode cards={practiceCards} colors={colors} />}
+      {activeMode === 'test' && <TestMode cards={practiceCards} colors={colors} />}
+      {activeMode === 'match' && <MatchMode cards={practiceCards} colors={colors} />}
     </View>
+  );
+}
+
+function ModeTabs({
+  activeMode,
+  colors,
+  onChange,
+}: {
+  activeMode: StudyMode;
+  colors: AppColors;
+  onChange: (mode: StudyMode) => void;
+}) {
+  return (
+    <View style={[styles.modeTabs, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+      {MODE_OPTIONS.map((mode) => {
+        const isActive = activeMode === mode.id;
+
+        return (
+          <Pressable
+            key={mode.id}
+            accessibilityRole="button"
+            accessibilityLabel={`${mode.label} 모드`}
+            onPress={() => onChange(mode.id)}
+            style={[styles.modeTab, isActive && { backgroundColor: colors.accent }]}
+          >
+            <Ionicons name={mode.icon} size={16} color={isActive ? '#000000' : colors.textMuted} />
+            <ThemedText style={[styles.modeTabText, { color: isActive ? '#000000' : colors.textSecondary }]}>
+              {mode.label}
+            </ThemedText>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+function LearnMode({ cards, colors }: { cards: PracticeCard[]; colors: AppColors }) {
+  const [queue, setQueue] = useState<PracticeCard[]>(() => shuffleItems(cards));
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
+  const [correctCount, setCorrectCount] = useState(0);
+  const [missCount, setMissCount] = useState(0);
+
+  useEffect(() => {
+    setQueue(shuffleItems(cards));
+    setCurrentIndex(0);
+    setSelectedAnswer(null);
+    setCorrectCount(0);
+    setMissCount(0);
+  }, [cards]);
+
+  const currentCard = queue[currentIndex];
+  const options = useMemo(
+    () => (currentCard ? buildOptions(cards, currentCard.definition, 'definition') : []),
+    [cards, currentCard?.id]
+  );
+  const isComplete = !currentCard;
+  const isCorrect = selectedAnswer === currentCard?.definition;
+
+  const handleAnswer = (answer: string) => {
+    if (selectedAnswer) return;
+    setSelectedAnswer(answer);
+  };
+
+  const handleNext = () => {
+    if (!currentCard || !selectedAnswer) return;
+
+    if (selectedAnswer === currentCard.definition) {
+      setCorrectCount((value) => value + 1);
+    } else {
+      setMissCount((value) => value + 1);
+      setQueue((value) => [...value, currentCard]);
+    }
+
+    setSelectedAnswer(null);
+    setCurrentIndex((value) => value + 1);
+  };
+
+  const handleRestart = () => {
+    setQueue(shuffleItems(cards));
+    setCurrentIndex(0);
+    setSelectedAnswer(null);
+    setCorrectCount(0);
+    setMissCount(0);
+  };
+
+  if (isComplete) {
+    return (
+      <ModeScrollBody>
+        <View style={[styles.resultPanel, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+          <ThemedText style={styles.resultTitle}>학습 완료</ThemedText>
+          <View style={styles.scoreRow}>
+            <ScorePill label="맞힘" value={correctCount} color={colors.success} />
+            <ScorePill label="복습" value={missCount} color={colors.warning} />
+          </View>
+          <ActionButton label="다시 학습" icon="refresh" colors={colors} onPress={handleRestart} />
+        </View>
+      </ModeScrollBody>
+    );
+  }
+
+  return (
+    <ModeScrollBody>
+      <View style={[styles.practicePanel, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+        <View style={styles.panelHeader}>
+          <ThemedText style={[styles.panelLabel, { color: colors.textMuted }]}>학습</ThemedText>
+          <ThemedText style={[styles.panelCounter, { color: colors.textMuted }]}>
+            {Math.min(currentIndex + 1, queue.length)} / {queue.length}
+          </ThemedText>
+        </View>
+
+        <View style={styles.promptBlock}>
+          <View style={styles.wordLine}>
+            <ThemedText style={styles.promptWord}>{currentCard.word}</ThemedText>
+            <Pressable
+              accessibilityLabel="발음 듣기"
+              onPress={() => speakWord(currentCard.word, getCardAudioId(currentCard))}
+              style={[styles.smallIconButton, { backgroundColor: colors.surface }]}
+            >
+              <Ionicons name="volume-medium" size={18} color={colors.textMuted} />
+            </Pressable>
+          </View>
+          {currentCard.phonetic && (
+            <ThemedText style={[styles.phoneticText, { color: colors.textMuted }]}>{currentCard.phonetic}</ThemedText>
+          )}
+        </View>
+
+        <OptionGrid
+          answer={currentCard.definition}
+          colors={colors}
+          disabled={Boolean(selectedAnswer)}
+          options={options}
+          selectedAnswer={selectedAnswer}
+          onSelect={handleAnswer}
+        />
+
+        {selectedAnswer && (
+          <View style={[styles.feedbackRow, { borderColor: isCorrect ? colors.success : colors.warning }]}>
+            <Ionicons
+              name={isCorrect ? 'checkmark-circle' : 'repeat'}
+              size={18}
+              color={isCorrect ? colors.success : colors.warning}
+            />
+            <ThemedText style={[styles.feedbackText, { color: colors.textSecondary }]}>
+              {isCorrect ? '정답' : currentCard.definition}
+            </ThemedText>
+            <ActionButton label="다음" icon="arrow-forward" colors={colors} onPress={handleNext} compact />
+          </View>
+        )}
+      </View>
+    </ModeScrollBody>
+  );
+}
+
+function TestMode({ cards, colors }: { cards: PracticeCard[]; colors: AppColors }) {
+  const [questions, setQuestions] = useState<TestQuestion[]>(() => buildTestQuestions(cards));
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    setQuestions(buildTestQuestions(cards));
+    setCurrentIndex(0);
+    setAnswers({});
+  }, [cards]);
+
+  const currentQuestion = questions[currentIndex];
+  const selectedAnswer = currentQuestion ? answers[currentQuestion.id] : undefined;
+  const isDone = currentIndex >= questions.length;
+  const correctCount = questions.filter((question) => answers[question.id] === question.answer).length;
+  const missedQuestions = questions.filter((question) => answers[question.id] && answers[question.id] !== question.answer);
+
+  const handleRestart = () => {
+    setQuestions(buildTestQuestions(cards));
+    setCurrentIndex(0);
+    setAnswers({});
+  };
+
+  if (isDone) {
+    return (
+      <ModeScrollBody>
+        <View style={[styles.resultPanel, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+          <ThemedText style={styles.resultTitle}>테스트 결과</ThemedText>
+          <View style={styles.scoreRow}>
+            <ScorePill label="점수" value={`${correctCount}/${questions.length}`} color={colors.accent} />
+            <ScorePill label="오답" value={missedQuestions.length} color={colors.error} />
+          </View>
+
+          {missedQuestions.length > 0 && (
+            <View style={styles.missList}>
+              {missedQuestions.slice(0, 8).map((question) => (
+                <View key={question.id} style={[styles.missItem, { borderColor: colors.border }]}>
+                  <ThemedText style={styles.missWord}>{question.card.word}</ThemedText>
+                  <ThemedText style={[styles.missMeaning, { color: colors.textMuted }]}>{question.card.definition}</ThemedText>
+                </View>
+              ))}
+            </View>
+          )}
+
+          <ActionButton label="새 테스트" icon="refresh" colors={colors} onPress={handleRestart} />
+        </View>
+      </ModeScrollBody>
+    );
+  }
+
+  return (
+    <ModeScrollBody>
+      <View style={[styles.practicePanel, { backgroundColor: colors.surfaceElevated, borderColor: colors.border }]}>
+        <View style={styles.panelHeader}>
+          <ThemedText style={[styles.panelLabel, { color: colors.textMuted }]}>
+            {currentQuestion.direction === 'word-to-meaning' ? '뜻 고르기' : '단어 고르기'}
+          </ThemedText>
+          <ThemedText style={[styles.panelCounter, { color: colors.textMuted }]}>
+            {currentIndex + 1} / {questions.length}
+          </ThemedText>
+        </View>
+
+        <ThemedText style={styles.testPrompt}>{currentQuestion.prompt}</ThemedText>
+
+        <OptionGrid
+          answer={currentQuestion.answer}
+          colors={colors}
+          disabled={false}
+          options={currentQuestion.options}
+          revealAnswer={false}
+          selectedAnswer={selectedAnswer ?? null}
+          onSelect={(answer) =>
+            setAnswers((value) => ({
+              ...value,
+              [currentQuestion.id]: answer,
+            }))
+          }
+        />
+
+        <View style={styles.testFooter}>
+          <ActionButton
+            label={currentIndex === questions.length - 1 ? '채점' : '다음'}
+            icon={currentIndex === questions.length - 1 ? 'checkmark' : 'arrow-forward'}
+            colors={colors}
+            disabled={!selectedAnswer}
+            onPress={() => setCurrentIndex((value) => value + 1)}
+          />
+        </View>
+      </View>
+    </ModeScrollBody>
+  );
+}
+
+function MatchMode({ cards, colors }: { cards: PracticeCard[]; colors: AppColors }) {
+  const [tiles, setTiles] = useState<MatchTile[]>(() => shuffleItems(createMatchTiles(cards)));
+  const [selectedTileId, setSelectedTileId] = useState<string | null>(null);
+  const [matchedCardIds, setMatchedCardIds] = useState<Set<string>>(() => new Set());
+  const [wrongTileIds, setWrongTileIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    setTiles(shuffleItems(createMatchTiles(cards)));
+    setSelectedTileId(null);
+    setMatchedCardIds(new Set());
+    setWrongTileIds([]);
+  }, [cards]);
+
+  const matchedCount = matchedCardIds.size;
+  const isComplete = matchedCount > 0 && matchedCount * 2 === tiles.length;
+
+  const handleNewBoard = () => {
+    setTiles(shuffleItems(createMatchTiles(cards)));
+    setSelectedTileId(null);
+    setMatchedCardIds(new Set());
+    setWrongTileIds([]);
+  };
+
+  const handleTilePress = (tile: MatchTile) => {
+    if (matchedCardIds.has(tile.cardId) || wrongTileIds.length > 0) return;
+
+    if (!selectedTileId) {
+      setSelectedTileId(tile.tileId);
+      return;
+    }
+
+    if (selectedTileId === tile.tileId) {
+      setSelectedTileId(null);
+      return;
+    }
+
+    const selectedTile = tiles.find((item) => item.tileId === selectedTileId);
+    if (!selectedTile) return;
+
+    const isMatch = selectedTile.cardId === tile.cardId && selectedTile.kind !== tile.kind;
+
+    if (isMatch) {
+      setMatchedCardIds((value) => new Set(value).add(tile.cardId));
+      setSelectedTileId(null);
+      return;
+    }
+
+    setWrongTileIds([selectedTile.tileId, tile.tileId]);
+    setTimeout(() => {
+      setWrongTileIds([]);
+      setSelectedTileId(null);
+    }, 550);
+  };
+
+  return (
+    <ModeScrollBody>
+      <View style={[styles.matchHeader, { borderColor: colors.border }]}>
+        <View>
+          <ThemedText style={styles.matchTitle}>매칭</ThemedText>
+          <ThemedText style={[styles.panelCounter, { color: colors.textMuted }]}>
+            {matchedCount} / {tiles.length / 2}
+          </ThemedText>
+        </View>
+        <ActionButton label="새 판" icon="shuffle" colors={colors} onPress={handleNewBoard} compact />
+      </View>
+
+      <View style={styles.matchGrid}>
+        {tiles.map((tile) => {
+          const isSelected = selectedTileId === tile.tileId;
+          const isMatched = matchedCardIds.has(tile.cardId);
+          const isWrong = wrongTileIds.includes(tile.tileId);
+
+          return (
+            <Pressable
+              key={tile.tileId}
+              accessibilityRole="button"
+              disabled={isMatched}
+              onPress={() => handleTilePress(tile)}
+              style={[
+                styles.matchTile,
+                {
+                  backgroundColor: isMatched ? `${colors.success}33` : colors.surfaceElevated,
+                  borderColor: isWrong
+                    ? colors.error
+                    : isSelected
+                      ? colors.accent
+                      : isMatched
+                        ? colors.success
+                        : colors.border,
+                },
+              ]}
+            >
+              <ThemedText
+                style={[
+                  styles.matchTileText,
+                  { color: isMatched ? colors.textMuted : colors.textSecondary },
+                ]}
+              >
+                {tile.text}
+              </ThemedText>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {isComplete && (
+        <View style={[styles.completeStrip, { borderColor: colors.success }]}>
+          <Ionicons name="checkmark-circle" size={18} color={colors.success} />
+          <ThemedText style={[styles.feedbackText, { color: colors.textSecondary }]}>완료</ThemedText>
+        </View>
+      )}
+    </ModeScrollBody>
+  );
+}
+
+function OptionGrid({
+  answer,
+  colors,
+  disabled,
+  options,
+  revealAnswer = true,
+  selectedAnswer,
+  onSelect,
+}: {
+  answer: string;
+  colors: AppColors;
+  disabled: boolean;
+  options: string[];
+  revealAnswer?: boolean;
+  selectedAnswer: string | null;
+  onSelect: (answer: string) => void;
+}) {
+  return (
+    <View style={styles.optionGrid}>
+      {options.map((option) => {
+        const isSelected = selectedAnswer === option;
+        const shouldReveal = revealAnswer && Boolean(selectedAnswer);
+        const showCorrect = shouldReveal && option === answer;
+        const showWrong = shouldReveal && isSelected && selectedAnswer !== answer;
+
+        return (
+          <Pressable
+            key={option}
+            accessibilityRole="button"
+            disabled={disabled}
+            onPress={() => onSelect(option)}
+            style={[
+              styles.optionButton,
+              {
+                backgroundColor: showCorrect
+                  ? `${colors.success}33`
+                  : showWrong
+                    ? `${colors.error}33`
+                    : colors.surface,
+                borderColor: showCorrect
+                  ? colors.success
+                  : showWrong
+                    ? colors.error
+                    : isSelected
+                      ? colors.accent
+                      : colors.border,
+              },
+            ]}
+          >
+            <ThemedText style={[styles.optionText, { color: colors.textSecondary }]}>{option}</ThemedText>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+function ActionButton({
+  colors,
+  disabled,
+  icon,
+  label,
+  compact,
+  onPress,
+}: {
+  colors: AppColors;
+  disabled?: boolean;
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  compact?: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      disabled={disabled}
+      onPress={onPress}
+      style={[
+        styles.actionButton,
+        compact && styles.actionButtonCompact,
+        {
+          backgroundColor: disabled ? colors.surface : colors.accent,
+          opacity: disabled ? 0.55 : 1,
+        },
+      ]}
+    >
+      <Ionicons name={icon} size={16} color="#000000" />
+      <ThemedText style={styles.actionButtonText}>{label}</ThemedText>
+    </Pressable>
+  );
+}
+
+function ScorePill({ label, value, color }: { label: string; value: number | string; color: string }) {
+  return (
+    <View style={[styles.scorePill, { borderColor: color }]}>
+      <ThemedText style={[styles.scoreValue, { color }]}>{value}</ThemedText>
+      <ThemedText style={styles.scoreLabel}>{label}</ThemedText>
+    </View>
+  );
+}
+
+function ModeScrollBody({ children }: { children: React.ReactNode }) {
+  return (
+    <ScrollView style={styles.modeBody} contentContainerStyle={styles.modeContent} showsVerticalScrollIndicator={false}>
+      {children}
+    </ScrollView>
   );
 }
 
@@ -257,16 +805,256 @@ const styles = StyleSheet.create({
     fontFamily: FontFamily.regular,
     opacity: 0.6,
   },
+  topControls: {
+    paddingHorizontal: Spacing.lg,
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
   dayBadge: {
     alignSelf: 'center',
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 8,
+    borderRadius: BorderRadius.md,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.xs,
-    marginBottom: Spacing.sm,
   },
   dayBadgeText: {
     fontSize: 13,
     fontFamily: FontFamily.medium,
+  },
+  modeTabs: {
+    minHeight: 46,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: BorderRadius.md,
+    flexDirection: 'row',
+    padding: 4,
+    gap: 4,
+  },
+  modeTab: {
+    flex: 1,
+    minHeight: 38,
+    borderRadius: BorderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 6,
+    paddingHorizontal: Spacing.xs,
+  },
+  modeTabText: {
+    fontSize: 13,
+    fontFamily: FontFamily.semiBold,
+  },
+  modeBody: {
+    flex: 1,
+  },
+  modeContent: {
+    paddingHorizontal: Spacing.lg,
+    paddingBottom: Spacing.xl,
+    gap: Spacing.md,
+  },
+  practicePanel: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.lg,
+    gap: Spacing.lg,
+  },
+  resultPanel: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.lg,
+    gap: Spacing.lg,
+    alignItems: 'center',
+  },
+  panelHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.md,
+  },
+  panelLabel: {
+    fontSize: 12,
+    fontFamily: FontFamily.bold,
+    textTransform: 'uppercase',
+  },
+  panelCounter: {
+    fontSize: 13,
+    fontFamily: FontFamily.medium,
+  },
+  promptBlock: {
+    alignItems: 'center',
+    gap: Spacing.xs,
+    paddingVertical: Spacing.md,
+  },
+  wordLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    flexWrap: 'wrap',
+  },
+  promptWord: {
+    fontSize: 34,
+    lineHeight: 42,
+    fontFamily: FontFamily.bold,
+    textAlign: 'center',
+  },
+  phoneticText: {
+    fontSize: FontSize.sm,
+    fontFamily: FontFamily.regular,
+  },
+  smallIconButton: {
+    width: 34,
+    height: 34,
+    borderRadius: BorderRadius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  optionGrid: {
+    gap: Spacing.sm,
+  },
+  optionButton: {
+    minHeight: 52,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: BorderRadius.md,
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+  },
+  optionText: {
+    fontSize: 15,
+    lineHeight: 22,
+    fontFamily: FontFamily.medium,
+  },
+  feedbackRow: {
+    minHeight: 52,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  feedbackText: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 20,
+    fontFamily: FontFamily.medium,
+  },
+  actionButton: {
+    minHeight: 44,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+  },
+  actionButtonCompact: {
+    minHeight: 36,
+  },
+  actionButtonText: {
+    color: '#000000',
+    fontSize: 14,
+    fontFamily: FontFamily.semiBold,
+  },
+  resultTitle: {
+    fontSize: FontSize.xl,
+    fontFamily: FontFamily.bold,
+  },
+  scoreRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+  },
+  scorePill: {
+    minWidth: 98,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: BorderRadius.md,
+    alignItems: 'center',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+  },
+  scoreValue: {
+    fontSize: FontSize.xl,
+    fontFamily: FontFamily.bold,
+  },
+  scoreLabel: {
+    fontSize: 12,
+    fontFamily: FontFamily.medium,
+    opacity: 0.7,
+  },
+  testPrompt: {
+    fontSize: 28,
+    lineHeight: 36,
+    fontFamily: FontFamily.bold,
+    textAlign: 'center',
+    paddingVertical: Spacing.lg,
+  },
+  testFooter: {
+    alignItems: 'flex-end',
+  },
+  missList: {
+    alignSelf: 'stretch',
+    gap: Spacing.sm,
+  },
+  missItem: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+  },
+  missWord: {
+    fontSize: 15,
+    fontFamily: FontFamily.semiBold,
+  },
+  missMeaning: {
+    fontSize: 13,
+    fontFamily: FontFamily.regular,
+    marginTop: 2,
+  },
+  matchHeader: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: BorderRadius.md,
+    padding: Spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.md,
+  },
+  matchTitle: {
+    fontSize: FontSize.lg,
+    fontFamily: FontFamily.bold,
+  },
+  matchGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
+  },
+  matchTile: {
+    width: '48.5%',
+    minHeight: 78,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: BorderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.sm,
+  },
+  matchTileText: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontFamily: FontFamily.medium,
+    textAlign: 'center',
+  },
+  completeStrip: {
+    minHeight: 48,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
   },
 });
