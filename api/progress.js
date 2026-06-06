@@ -2,6 +2,7 @@ const STORE_KEY = process.env.PROGRESS_SYNC_KEY || 'hackers-transfer-750:progres
 const REST_URL = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
 const REST_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
 const ACCESS_TOKEN = process.env.PROGRESS_SYNC_TOKEN;
+const { hasValidSession, isPasswordConfigured } = require('./_auth');
 
 function sendJson(res, status, body) {
   res.status(status);
@@ -16,8 +17,9 @@ function setCorsHeaders(res) {
 }
 
 function isAuthorized(req) {
-  if (!ACCESS_TOKEN) return true;
-  return req.headers['x-progress-sync-token'] === ACCESS_TOKEN;
+  if (isPasswordConfigured() && hasValidSession(req)) return true;
+  if (ACCESS_TOKEN && req.headers['x-progress-sync-token'] === ACCESS_TOKEN) return true;
+  return !isPasswordConfigured() && !ACCESS_TOKEN;
 }
 
 function parseBody(body) {

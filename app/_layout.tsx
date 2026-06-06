@@ -12,6 +12,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
 
+import { AuthGate } from '@/components/auth';
 import { AnkiDarkTheme, AnkiLightTheme } from '@/constants/navigation-theme';
 import { useColorScheme } from '@/hooks';
 import { DatabaseProvider } from '@/lib/db';
@@ -40,15 +41,17 @@ export default function RootLayout() {
   }
 
   return (
-    <DatabaseProvider>
-      <ThemeProvider value={colorScheme === 'dark' ? AnkiDarkTheme : AnkiLightTheme}>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="index" options={{ headerShown: false }} />
-          <Stack.Screen name="study" options={{ headerShown: false }} />
-          <Stack.Screen name="modal" options={{ presentation: 'modal', headerShown: false }} />
-        </Stack>
-        <StatusBar style="light" />
-      </ThemeProvider>
-    </DatabaseProvider>
+    <AuthGate>
+      <DatabaseProvider>
+        <ThemeProvider value={colorScheme === 'dark' ? AnkiDarkTheme : AnkiLightTheme}>
+          <Stack screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="index" options={{ headerShown: false }} />
+            <Stack.Screen name="study" options={{ headerShown: false }} />
+            <Stack.Screen name="modal" options={{ presentation: 'modal', headerShown: false }} />
+          </Stack>
+          <StatusBar style="light" />
+        </ThemeProvider>
+      </DatabaseProvider>
+    </AuthGate>
   );
 }

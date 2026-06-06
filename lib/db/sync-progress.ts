@@ -54,6 +54,7 @@ async function requestSyncApi(method: 'GET' | 'PUT' | 'DELETE', body?: unknown):
   try {
     const response = await fetch(endpoint, {
       method,
+      credentials: 'include',
       headers,
       body: body === undefined ? undefined : JSON.stringify(body),
     });

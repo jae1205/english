@@ -18,6 +18,9 @@ Upstash Redis can also use these names:
 
 ## Optional Variables
 
+- `APP_PASSWORD`: Required when password protecting the app. Set this in Vercel,
+  not in client code.
+- `APP_AUTH_SECRET`: Optional cookie signing secret. Defaults to `APP_PASSWORD`.
 - `PROGRESS_SYNC_KEY`: Redis key name. Defaults to
   `hackers-transfer-750:progress:v1`.
 - `PROGRESS_SYNC_TOKEN`: Optional API write/read token checked by the Vercel
