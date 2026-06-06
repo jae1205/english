@@ -4,8 +4,15 @@
  */
 import { getDatabase, runInDatabaseTransaction } from '../index';
 import type { DbCardProgress, DbReviewLog, DeckStats } from '../types';
-import { dbProgressToCardState, cardStateToDbProgress } from '../types';
+import { dbProgressToCardState } from '../types';
 import type { CardState, Rating } from '@/lib/srs';
+
+export interface ProgressSnapshot {
+  version: 1;
+  updatedAt: number;
+  cardProgress: DbCardProgress[];
+  reviewLogs: DbReviewLog[];
+}
 
 /**
  * Get progress for a single card
@@ -25,6 +32,99 @@ export async function getCardState(cardId: string): Promise<CardState | null> {
   const progress = await getCardProgress(cardId);
   if (!progress) return null;
   return dbProgressToCardState(progress);
+}
+
+/**
+ * Export all user-owned study progress for server sync.
+ */
+export async function exportProgressSnapshot(): Promise<ProgressSnapshot> {
+  const db = await getDatabase();
+  const cardProgress = await db.getAllAsync<DbCardProgress>(
+    'SELECT * FROM card_progress ORDER BY card_id ASC'
+  );
+  const reviewLogs = await db.getAllAsync<DbReviewLog>(
+    'SELECT * FROM review_logs ORDER BY id ASC'
+  );
+
+  return {
+    version: 1,
+    updatedAt: Date.now(),
+    cardProgress,
+    reviewLogs,
+  };
+}
+
+/**
+ * Replace local progress with a server snapshot.
+ * Cards/decks are seeded from bundled vocabulary; only progress/logs are synced.
+ */
+export async function importProgressSnapshot(snapshot: ProgressSnapshot): Promise<void> {
+  if (snapshot.version !== 1 || !Array.isArray(snapshot.cardProgress)) {
+    throw new Error('Unsupported progress snapshot');
+  }
+
+  await runInDatabaseTransaction(async (txn) => {
+    for (const progress of snapshot.cardProgress) {
+      await txn.runAsync(
+        `INSERT INTO card_progress (
+          card_id,
+          status,
+          interval,
+          ease,
+          due_date,
+          learning_step,
+          lapse_count,
+          review_count,
+          last_reviewed_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(card_id) DO UPDATE SET
+          status = excluded.status,
+          interval = excluded.interval,
+          ease = excluded.ease,
+          due_date = excluded.due_date,
+          learning_step = excluded.learning_step,
+          lapse_count = excluded.lapse_count,
+          review_count = excluded.review_count,
+          last_reviewed_at = excluded.last_reviewed_at`,
+        [
+          progress.card_id,
+          progress.status,
+          progress.interval,
+          progress.ease,
+          progress.due_date,
+          progress.learning_step,
+          progress.lapse_count,
+          progress.review_count,
+          progress.last_reviewed_at,
+        ]
+      );
+    }
+
+    await txn.runAsync('DELETE FROM review_logs');
+
+    for (const log of snapshot.reviewLogs ?? []) {
+      await txn.runAsync(
+        `INSERT INTO review_logs (
+          id,
+          card_id,
+          rating,
+          reviewed_at,
+          time_taken_ms,
+          prev_state
+        )
+        VALUES (?, ?, ?, ?, ?, ?)`,
+        [
+          log.id,
+          log.card_id,
+          log.rating,
+          log.reviewed_at,
+          log.time_taken_ms,
+          log.prev_state,
+        ]
+      );
+    }
+  });
 }
 
 /**

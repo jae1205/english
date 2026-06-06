@@ -14,6 +14,7 @@ import {
 } from '../repositories/progress';
 import { getDailyNewCardLimit } from '../repositories/settings';
 import { calculateSRS, DEFAULT_SRS_CONFIG } from '@/lib/srs';
+import { pullProgressFromServer, pushProgressToServer } from '../sync-progress';
 import type { CardState, Rating, SRSResult } from '@/lib/srs';
 
 // ============================================
@@ -70,6 +71,8 @@ export interface SessionSummary {
  * Get study queue for a deck
  */
 export async function getStudyQueue(deckId: string, studyDay?: number): Promise<StudyQueue> {
+  await pullProgressFromServer();
+
   const dailyLimit = await getDailyNewCardLimit();
   const dueCards = await getDueCards(deckId, dailyLimit, studyDay);
 
@@ -161,6 +164,7 @@ export async function submitRating(
     currentState,
     timeTakenMs
   );
+  await pushProgressToServer();
 
   return result;
 }
@@ -170,7 +174,11 @@ export async function submitRating(
  * @returns The restored CardState, or null if undo was not possible
  */
 export async function undoRating(cardId: string): Promise<CardState | null> {
-  return undoLastReview(cardId);
+  const restoredState = await undoLastReview(cardId);
+  if (restoredState) {
+    await pushProgressToServer();
+  }
+  return restoredState;
 }
 
 /**

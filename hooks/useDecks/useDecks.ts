@@ -6,6 +6,7 @@ import { useState, useCallback } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import { getAllDecksWithStats } from '@/lib/db';
 import { adaptDecksToUI } from '@/lib/adapters';
+import { pullProgressFromServer } from '@/lib/db/sync-progress';
 
 import type { UseDecksState, UseDecksReturn } from './useDecks.type';
 
@@ -35,6 +36,7 @@ export function useDecks(): UseDecksReturn {
     setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
     try {
+      await pullProgressFromServer();
       const dbDecks = await getAllDecksWithStats();
       const uiDecks = adaptDecksToUI(dbDecks);
 
@@ -61,6 +63,7 @@ export function useDecks(): UseDecksReturn {
 
       async function load() {
         try {
+          await pullProgressFromServer();
           const dbDecks = await getAllDecksWithStats();
 
           if (mounted) {

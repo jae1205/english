@@ -9,6 +9,7 @@ import { ThemedText } from '@/components/themed-text';
 import { Colors, FontFamily, Spacing, BorderRadius } from '@/constants/theme';
 import { useColorScheme, useDecks } from '@/hooks';
 import { forceSeedDatabase } from '@/lib/db';
+import { pushProgressToServer } from '@/lib/db/sync-progress';
 
 const DAY_OPTIONS: { label: string; value: number | 'all' }[] = [
   { label: '전체', value: 'all' },
@@ -50,6 +51,7 @@ export default function HomeScreen() {
     setResetting(true);
     try {
       await forceSeedDatabase();
+      await pushProgressToServer();
       await refresh();
     } finally {
       setResetting(false);

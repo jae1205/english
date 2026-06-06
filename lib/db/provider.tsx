@@ -48,6 +48,8 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
         }
 
         const db = await getDatabase();
+        const { pullProgressFromServer } = await import('./sync-progress');
+        await pullProgressFromServer();
 
         if (mounted) {
           setState({ db, isReady: true, error: null });
